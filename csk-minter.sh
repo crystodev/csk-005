@@ -2,15 +2,23 @@
 set -e
 #set -x
 
-# This script creates, signs, and submits a transaction that creates some new
+if [[ $# -ne 4 ]]; then
+  echo "Mint token"
+  echo "Usage : $0 <SOURCE_ADDRESS> <PAYMENT.SKEY> <TOKEN_NAME> <TOKEN_AMOUNT>"
+  echo "Eg: $0 ./base.addr ./payment.skey TEST 1000"
+  exit
+fi
+
+# This script creates, signs, and submits a transaction that creates some new
 # tokens that will be sent to the same origin wallet used to pay for the fees.
 
 NETWORK_MAGIC=3
-SOURCE_ADDRESS=$(cat /opt/cardano/cnode/priv/wallet/csk005/base.addr)
+SOURCE_ADDRESS=$(cat $1)
 DESTINATION_ADDRESS=${SOURCE_ADDRESS}
-PAYMENT_SKEY="/opt/cardano/cnode/priv/wallet/csk005/payment.skey"
-TOKEN_NAME=SPAM$$token
-TOKEN_AMOUNT=1
+#PAYMENT_SKEY="/opt/cardano/cnode/priv/wallet/csk005/payment.skey"
+PAYMENT_SKEY="$2"
+TOKEN_NAME=$3$$token
+TOKEN_AMOUNT=$4
 
 # 1. Create a policy for our token
 mkdir -p ${TOKEN_NAME}

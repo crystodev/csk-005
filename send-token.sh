@@ -6,6 +6,13 @@ set -e
 # This script creates, signs, and submits a transaction that creates some new tokens.
 # It uses the output of the transaction from update-4.sh.
 
+if [[ $# -ne 4 ]]; then
+  echo "Send token"
+  echo "Usage : $0 <SOURCE_ADDRESS> <PAYMENT.SKEY> <TOKEN_NAME> <TOKEN_AMOUNT>"
+  echo "Eg: $0 ./base.addr ./payment.skey TEST 1000"
+  exit
+fi
+
 NETWORK_MAGIC=3
 SOURCE_ADDRESS=$(cat ../base.addr)
 DESTINATION_ADDRESS=$(cat /opt/cardano/cnode/priv/wallet/csk005/base.addr)
