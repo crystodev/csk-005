@@ -28,10 +28,24 @@ def createPolicy(token_name):
   """
   create policy for token
   """
-  os.makedirs(token_name, mode=0o777, exist_ok=True)
   policy_script=token_name+'/policy.script'
   policy_vkey=token_name+'/policy.vkey'
   policy_skey=token_name+'/policy.skey'
+  policy = {}
+  policy['policy_script'] = policy_script
+  policy['policy_vkey'] = policy_vkey
+  policy['policy_skey'] = policy_skey
+
+  "check if token exists"
+  "if so, returns existing policy"
+  if(os.path.exists(token_name)) :
+    print("Token exists : no policy created for token", token_name)
+    policy_id = subprocess.run(['cardano-cli', 'transaction', 'policyid', '--script-file', policy_script], capture_output=True)
+    policy['policy_id'] = policy_id.stdout.decode().replace('\n', '')
+    return policy
+
+  os.makedirs(token_name, mode=0o777, exist_ok=True)
+
   rc = subprocess.run(['cardano-cli', 'address', 'key-gen', '--verification-key-file', policy_vkey, '--signing-key-file', policy_skey], capture_output=False)
 
   "create policy script"
@@ -45,11 +59,8 @@ def createPolicy(token_name):
   "get policy id"
   policy_id = subprocess.run(['cardano-cli', 'transaction', 'policyid', '--script-file', policy_script], capture_output=True, text=True)
 
-  policy = {}
   policy['policy_id'] = policy_id.stdout.replace('\n', '')
-  policy['policy_script'] = policy_script
-  policy['policy_vkey'] = policy_vkey
-  policy['policy_skey'] = policy_skey
+
   return policy
 
 def get_protocol_parameters(network, protparams_file):
@@ -154,7 +165,6 @@ def mint(network, address, skey, token, amount):
   protocol_parameters_file = '/tmp/protparams.json'
 
   "1. Create a policy for our token"
-  "TODO : Check if token already exist before creating new policy"
   policy = createPolicy(token)
 
   "2. Extract protocol parameters (needed for fee calculations)"
