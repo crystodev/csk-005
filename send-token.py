@@ -1,7 +1,7 @@
 '''
 Send some Cardano Token
 '''
-import argparse
+from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
 from tokutils import calculate_tokens_balance, get_policy, get_address, get_protocol_parameters
@@ -9,7 +9,7 @@ from transaction import build_send_transaction, calculate_send_fees, get_utxo_fr
 
 def send(network, destination_address, source_address, skey_file, ada_amount, token, token_amount):
   """
-  mint amount of token for address on given network
+  send amount of token for address on given network
   """
   protocol_parameters_file = '/tmp/protparams.json'
 
@@ -54,7 +54,7 @@ def main():
 
   python3 %(prog)s --address paymentBob.addr --from paymentAlice.addr --skey paymentAlice.skey --token TOK --amount 10000
   '''
-  parser = argparse.ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
+  parser = ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
   parser.add_argument('-a', '--address', nargs='?', help='destination address file', required=True)
   parser.add_argument('-f', '--from-address', nargs='?', help='source address file', required=True)
   parser.add_argument('-s', '--skey', nargs='?', help='signing key file', required=True)

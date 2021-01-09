@@ -16,6 +16,23 @@ def calculate_tokens_balance(tokens):
     result[key] += value
   return result
 
+def create_address(address_type, addresses_path, address_prefix, address_name):
+  """
+  create address based on address_name
+  """
+  vkey_file = addresses_path+address_prefix+address_name+'.vkey'
+  skey_file = addresses_path+address_prefix+address_name+'.skey'
+
+  if(path.exists(vkey_file)) :
+    print(address_prefix, "address already exists :", address_name)
+    return
+  
+  makedirs(addresses_path, mode=0o777, exist_ok=True)
+
+  run_params = ['cardano-cli', address_type, 'key-gen', '--verification-key-file', vkey_file, '--signing-key-file', skey_file]
+  subprocess_run(run_params, capture_output=False, text=True)
+  return
+
 def create_policy(token_name, tokens_path):
   """
   create policy for token
