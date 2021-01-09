@@ -14,10 +14,13 @@ if [[ $# -ne 4 ]]; then
 fi
 
 NETWORK_MAGIC=3
-SOURCE_ADDRESS=$(cat ../base.addr)
-DESTINATION_ADDRESS=$(cat /opt/cardano/cnode/priv/wallet/csk005/base.addr)
-PAYMENT_SKEY=../payment.skey
-TOKEN_POLICY=67990188e55b6141bdcfa9958759cb021be22984431eb76f5726d6ae.SPAM9511token
+#SOURCE_ADDRESS=$(cat addresses/paymentAlice.addr)
+#DESTINATION_ADDRESS=$(cat addresses/payment.addr)
+#PAYMENT_SKEY=addresses/paymentAlice.skey
+SOURCE_ADDRESS=$(cat addresses/payment.addr)
+DESTINATION_ADDRESS=$(cat addresses/paymentAlice.addr)
+PAYMENT_SKEY=addresses/payment.skey
+TOKEN_POLICY=64801d751d960c73f2e4e8a03724ba0540bdbcf371f19040c3b435d9.AleX
 SEND_AMOUNT=1
 
 cardano-cli query protocol-parameters \
