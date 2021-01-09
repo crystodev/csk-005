@@ -49,6 +49,8 @@ def main():
   read parameters from command line
   and transfer token
   """
+  # TODO : Add possibility to send either or both ada and token
+
   # parse command line parameters
   example_text = '''example:
 
@@ -60,6 +62,7 @@ def main():
   parser.add_argument('-s', '--skey', nargs='?', help='signing key file', required=True)
   parser.add_argument('-t', '--token', nargs='?', help='token name', required=True)
   parser.add_argument('--amount', type=int, help='token amount', required=True)
+  parser.add_argument('--ada', type=int, help='ada amount', required=True)
   args = parser.parse_args()
 
   # load env vars
@@ -79,10 +82,11 @@ def main():
   dst_address = get_address(addresses_path+args.address)
   skey_file= addresses_path+args.skey
   token = args.token
-  amount = args.amount
+  token_amount = args.amount
+  ada_amount = args.ada
 
   # mint token
-  send(network, dst_address, src_address, skey_file, 0, token, amount)
+  send(network, dst_address, src_address, skey_file, ada_amount, token, token_amount)
 
 if __name__ == '__main__':
   main()

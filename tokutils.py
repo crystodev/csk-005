@@ -16,15 +16,15 @@ def calculate_tokens_balance(tokens):
     result[key] += value
   return result
 
-def create_address(address_type, addresses_path, address_prefix, address_name):
+def create_keypair(address_type, addresses_path, address_prefix, name):
   """
-  create address based on address_name
+  create keypair based on address_name
   """
-  vkey_file = addresses_path+address_prefix+address_name+'.vkey'
-  skey_file = addresses_path+address_prefix+address_name+'.skey'
+  vkey_file = addresses_path+address_prefix+name+'.vkey'
+  skey_file = addresses_path+address_prefix+name+'.skey'
 
   if(path.exists(vkey_file)) :
-    print(address_prefix, "address already exists :", address_name)
+    print(address_prefix, "key pair already exists for", name)
     return
   
   makedirs(addresses_path, mode=0o777, exist_ok=True)

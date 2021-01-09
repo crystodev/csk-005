@@ -1,6 +1,7 @@
 """
 This modules provides some Cardano blockchain transaction tools
 """
+from os import path
 from subprocess import run as subprocess_run
 
 def split_list(tx):
@@ -43,6 +44,7 @@ def build_send_transaction(network, destination_address, source_address, ada_amo
   """
   build transfer transaction for token
   """
+  # TODO : Calculate min ADA amount for transaction instead of fixed 2000000 
   network_era = network['network_era']
   ada_id = 'lovelace'
   asset_id = policy_id+'.'+token
@@ -89,6 +91,28 @@ def calculate_send_fees(network, destination_address, source_address, ada_amount
     capture_output=True, text=True)
   min_fee = int(rc.stdout.split(' ')[0])
   return min_fee
+
+def create_address(network, address_type, addresses_path, address_prefix, name):
+  """
+  create address based on address_name
+  """
+  vkey_file = addresses_path+address_prefix+name+'.vkey'
+
+  if not path.exists(vkey_file) :
+    print(address_prefix, "verification key missing for", name)
+    return
+  addr_file = addresses_path+address_prefix+name+'.addr'
+  if path.exists(addr_file) :
+    print(address_prefix, "address already exists for", name)
+    return
+  network_name = network['network']
+  network_magic = str(network['network_magic'])
+
+  run_params = ['cardano-cli', address_type, 'build', network_name, network_magic, \
+    '--'+address_prefix+'-verification-key-file', vkey_file, '--out-file', addr_file]
+  subprocess_run(run_params, capture_output=False, text=True)
+ 
+  return
 
 def get_utxo_from_wallet(network, address):
   """
