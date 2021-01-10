@@ -2,6 +2,7 @@
 This modules provides some Cardano blockchain transaction tools
 """
 from os import path
+from json import loads as json_loads
 from subprocess import run as subprocess_run
 from tokutils import get_address, get_protocol_keydeposit
 
@@ -42,7 +43,9 @@ def build_mint_transaction(network, address, token, amount, policy_id, utxo, fee
     tx_out=tx_out+'+'+str(value)+' '+key
   tx_out = tx_out+' +'+str(amount)+' '+asset_id
   mint = str(amount)+' '+asset_id
-  run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + ['--tx-out', tx_out, '--mint', mint, '--out-file', out_file]
+  ttl = calculate_ttl(network)
+  run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + \
+    ['--ttl', str(ttl), '--tx-out', tx_out, '--mint', mint, '--out-file', out_file]
   subprocess_run(run_params, capture_output=False, text=True)
   return
 
@@ -72,7 +75,9 @@ def build_send_transaction(network, destination_address, source_address, ada_amo
   if token is not None:
     tx_out_dst = tx_out_dst +' '+asset_id
   
-  run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + ['--tx-out', tx_out_dst, '--tx-out', tx_out_src, '--out-file', out_file]
+  ttl = calculate_ttl(network)
+  run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + \
+    ['--ttl', str(ttl), '--tx-out', tx_out_dst, '--tx-out', tx_out_src, '--out-file', out_file]
   subprocess_run(run_params, capture_output=False, text=True)
   return True
 
@@ -107,6 +112,14 @@ def calculate_send_fees(network, destination_address, source_address, ada_amount
     capture_output=True, text=True)
   min_fee = int(rc.stdout.split(' ')[0])
   return min_fee
+
+def calculate_ttl(network):
+  FORWARD_SLOT=300
+  run_params = ['cardano-cli', 'query', 'tip', network['network'], str(network['network_magic'])]
+  print(run_params)
+  tip = subprocess_run(run_params, capture_output=True, text=True)
+  slot = int(json_loads(tip.stdout).get('slotNo'))+FORWARD_SLOT
+  return slot
 
 def get_address_key_file(addresses_path, address_type, address_or_key, name):
   """
