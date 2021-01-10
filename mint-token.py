@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
 from tokutils import calculate_tokens_balance, create_policy, get_address, get_protocol_parameters
-from transaction import build_mint_transaction, calculate_mint_fees, get_address_file, get_skey_file, get_utxo_from_wallet, sign_mint_transaction, submit_transaction
+from transaction import build_mint_transaction, calculate_mint_fees, get_address_file, get_skey_file, get_transaction_file, get_utxo_from_wallet, sign_mint_transaction, submit_transaction
 
 def mint(network, address, skey_file, token, amount):
   """
@@ -15,6 +15,9 @@ def mint(network, address, skey_file, token, amount):
 
   # 1. Create a policy for our token
   policy = create_policy(token, network['tokens_path'])
+  if (policy == {}):
+    print("Token does not exist : no policy for token", token)
+    return
 
   # 2. Extract protocol parameters (needed for fee calculations)
   get_protocol_parameters(network, protocol_parameters_file)
@@ -27,13 +30,19 @@ def mint(network, address, skey_file, token, amount):
 
   # 5. Calculate fees for the transaction
   min_fee = calculate_mint_fees(network, address, token, amount, policy['policy_id'], utxo, protocol_parameters_file)
-
+  if min_fee is None:
+    return
+  
   # 6. Build actual transaction including correct fees
-  ok_fee_file = '/tmp/'+token+'.txbody-ok-fee'
-  build_mint_transaction(network, address, token, amount, policy['policy_id'], utxo, min_fee, ok_fee_file)
+  ok_fee_file = get_transaction_file(token, 'ok-fee')
 
+  rc = build_mint_transaction(network, address, token, amount, policy['policy_id'], utxo, min_fee, ok_fee_file)
+  if not rc:
+    print("Failed to build transaction")
+    return
+  
   # 7. Sign the transaction
-  sign_file = '/tmp/'+token+'.tx.sign'
+  sign_file = get_transaction_file(token, 'sign')
   sign_mint_transaction(network, skey_file, policy, ok_fee_file, sign_file)
 
   # 8. Submit the transaction to the blockchain
@@ -56,7 +65,7 @@ def main():
   group = parser.add_mutually_exclusive_group(required=True)
   group.add_argument('-n', '--name', help='payment address owner name')
   group.add_argument('-a', '--address', nargs=2, help='address_file and signing_key_file')
-  parser.add_argument('-t', '--token', nargs='?', help='token name', required=True)
+  parser.add_argument('-t', '--token', help='token name', required=True)
   parser.add_argument('--amount', type=int, help='token amount', required=True)
   args = parser.parse_args()
 

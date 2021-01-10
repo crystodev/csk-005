@@ -47,7 +47,7 @@ def create_policy(token_name, tokens_path):
 
   # check if token exists
   # if so, returns existing policy
-  if(path.exists(tokens_path+token_name)) :
+  if path.exists(policy_script) :
     print("Token exists : no policy created for token", token_name)
     policy_id = subprocess_run(['cardano-cli', 'transaction', 'policyid', '--script-file', policy_script], capture_output=True)
     policy['policy_id'] = policy_id.stdout.decode().replace('\n', '')
@@ -55,7 +55,7 @@ def create_policy(token_name, tokens_path):
 
   makedirs(tokens_path+token_name, mode=0o777, exist_ok=True)
 
-  rc = subprocess.run(['cardano-cli', 'address', 'key-gen', '--verification-key-file', policy_vkey, '--signing-key-file', policy_skey], capture_output=False)
+  rc = subprocess_run(['cardano-cli', 'address', 'key-gen', '--verification-key-file', policy_vkey, '--signing-key-file', policy_skey], capture_output=False)
 
   # create policy script
   keyhash = subprocess_run(['cardano-cli', 'address', 'key-hash', '--payment-verification-key-file', policy_vkey], capture_output=True, text=True)

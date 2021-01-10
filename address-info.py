@@ -10,6 +10,9 @@ from transaction import get_address_file, get_utxo_from_wallet
 
 def get_balance(network, name, address):
   utxo = get_utxo_from_wallet(network, address)
+  if utxo is None:
+    print("No transaction for address", address)
+    return
   token_dict = calculate_tokens_balance(utxo['tokens'])
   setlocale(LC_ALL, '')
   print('%32s%52s'%('Token', 'Amount') )
@@ -20,9 +23,9 @@ def get_balance(network, name, address):
 
 def get_utxo(network, name, address):
   utxo = get_utxo_from_wallet(network, address)
-#  tx_list = utxo['in_utxo'][1::2]
-#  print('TxHash#Idx\t\t\t\t\t\t\t\t\t')
-#  print('--------------------------------------------------------------------------------------')
+  if utxo is None:
+    print("No transaction for address", address)
+    return
   tx_list = utxo['raw']
   for tx in tx_list:
     print(tx)
@@ -72,6 +75,7 @@ def main():
     address_type = 'stake'
   else:
     address_type = 'payment'
+  
   address = get_address(get_address_file(addresses_path, address_type, name))
   if(args.balance is True or args.utxo is False):
     get_balance(network, name, address)

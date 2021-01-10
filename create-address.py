@@ -74,7 +74,7 @@ def main():
   name = args.name
   if(args.payment_key is True):
     create_payment_keypair(addresses_path, name)
-  if(args.payment is True):
+  if(args.payment is True) or not (args.payment_key or args.stake_key or args.stake):
     create_payment_address(network, addresses_path, name)
 
   if(args.stake_key is True):

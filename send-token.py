@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
 from tokutils import calculate_tokens_balance, get_policy, get_address, get_protocol_parameters
-from transaction import build_send_transaction, calculate_send_fees, get_transaction_file, get_utxo_from_wallet, sign_send_transaction, submit_transaction
+from transaction import build_send_transaction, calculate_send_fees, get_address_file, get_skey_file, get_transaction_file, get_utxo_from_wallet, sign_send_transaction, submit_transaction
 
 def send(network, destination_address, source_address, skey_file, ada_amount, token, token_amount):
   """
@@ -57,13 +57,16 @@ def main():
   # parse command line parameters
   example_text = '''example:
 
-  python3 %(prog)s --address paymentBob.addr --from paymentAlice.addr --skey paymentAlice.skey --token TOK --amount 10000
+  python3 %(prog)s --address paymentBob.addr --name Alice --token TOK --amount 10000
+  ;
+  python3 %(prog)s --address paymentBob.addr --from--address paymentAlice.addr paymentAlice.skey --token TOK --amount 10000
   '''
   parser = ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
-  parser.add_argument('-a', '--address', nargs='?', help='destination address file', required=True)
-  parser.add_argument('-f', '--from-address', nargs='?', help='source address file', required=True)
-  parser.add_argument('-s', '--skey', nargs='?', help='signing key file', required=True)
-  parser.add_argument('-t', '--token', nargs='?', help='token name', default=None)
+  group = parser.add_mutually_exclusive_group(required=True)
+  group.add_argument('-n', '--name', help='payer name')
+  group.add_argument('-f', '--from-address', nargs=2, help='payer address_file and signing_key_file')
+  parser.add_argument('-a', '--address', help='destination address file', required=True)
+  parser.add_argument('-t', '--token', help='token name', default=None)
   parser.add_argument('--amount', type=int, help='token amount', default=0)
   parser.add_argument('--ada', type=int, help='ada amount', default=0)
   args = parser.parse_args()
@@ -81,9 +84,15 @@ def main():
   addresses_path = getenv('ADDRESSES_PATH')
   
   # set parameters
-  src_address = get_address(addresses_path+args.from_address)
+  if args.name:
+    name = args.name
+    print(name)
+    src_address = get_address(get_address_file(addresses_path, 'payment', name))
+    skey_file = get_skey_file(addresses_path, 'payment', name)
+  else:
+    src_address = get_address(addresses_path+args.from_address[0])
+    skey_file= addresses_path+args.from_address[1]
   dst_address = get_address(addresses_path+args.address)
-  skey_file= addresses_path+args.skey
   token = args.token
   token_amount = args.amount
   ada_amount = args.ada
