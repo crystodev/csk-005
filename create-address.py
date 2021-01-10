@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 '''
 Create Cardano Key pair and Address
 '''

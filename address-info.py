@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 '''
 Get address utxo and balance for Name
 '''
