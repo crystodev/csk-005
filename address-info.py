@@ -73,7 +73,7 @@ def main():
   else:
     address_type = 'payment'
   address = get_address(get_address_file(addresses_path, address_type, name))
-  if(args.balance is True):
+  if(args.balance is True or args.utxo is False):
     get_balance(network, name, address)
 
   if(args.utxo is True):
