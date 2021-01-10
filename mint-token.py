@@ -84,11 +84,8 @@ def main():
   # set parameters
   if args.name:
     name = args.name
-    print(name)
     address = get_address(get_address_file(addresses_path, 'payment', name))
-    print(address)
     skey_file = get_skey_file(addresses_path, 'payment', name)
-    print(skey_file)
   else:
     address = get_address(addresses_path+args.address[0])
     skey_file= addresses_path+args.address[1]

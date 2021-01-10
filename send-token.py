@@ -33,6 +33,8 @@ def send(network, destination_address, source_address, skey_file, ada_amount, to
 
   # 5. Calculate fees for the transaction
   min_fee = calculate_send_fees(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, protocol_parameters_file)
+  if min_fee is None:
+    return
 
   # 6. Build actual transaction including correct fees
   ok_fee_file = get_transaction_file(token, 'ok-fee')

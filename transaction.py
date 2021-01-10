@@ -66,6 +66,12 @@ def build_send_transaction(network, destination_address, source_address, ada_amo
   """
   build transfer transaction for token
   """
+  if policy_id == "":
+    print("No policy_id")
+    return False
+  if utxo['count_utxo'] == 0:
+    print("No utxo found")
+    return False
   key_deposit = get_protocol_keydeposit(network)
   lovelace_amount = ada_amount * 1000000
   if lovelace_amount == 0:
@@ -132,7 +138,10 @@ def calculate_send_fees(network, destination_address, source_address, ada_amount
   """
   draft_file = get_transaction_file(token, 'draft')
 
-  build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, 0, draft_file)
+  rc = build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, 0, draft_file)
+  if not rc:
+    print("Failed to build transaction")
+    return None
   rc = subprocess_run(['cardano-cli', 'transaction', 'calculate-min-fee', '--tx-body-file', draft_file, '--tx-in-count', str(utxo['count_utxo']), \
     '--tx-out-count', '1', '--witness-count', '1', '--byron-witness-count', '0', '--protocol-params-file', protparams_file], \
     capture_output=True, text=True)
