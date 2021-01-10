@@ -116,7 +116,6 @@ def calculate_send_fees(network, destination_address, source_address, ada_amount
 def calculate_ttl(network):
   FORWARD_SLOT=300
   run_params = ['cardano-cli', 'query', 'tip', network['network'], str(network['network_magic'])]
-  print(run_params)
   tip = subprocess_run(run_params, capture_output=True, text=True)
   slot = int(json_loads(tip.stdout).get('slotNo'))+FORWARD_SLOT
   return slot
