@@ -3,7 +3,7 @@ This modules provides some Cardano blockchain transaction tools
 """
 from os import path
 from subprocess import run as subprocess_run
-from tokutils import get_protocol_keydeposit
+from tokutils import get_address, get_protocol_keydeposit
 
 def split_list(tx):
   """
@@ -154,11 +154,11 @@ def create_address(network, address_type, addresses_path, address_prefix, name):
 
   if not path.exists(vkey_file) :
     print(address_prefix, "verification key missing for", name)
-    return
+    return None
   addr_file = addresses_path+address_prefix+name+'.addr'
   if path.exists(addr_file) :
     print(address_prefix, "address already exists for", name)
-    return
+    return get_address(addr_file)
   network_name = network['network']
   network_magic = str(network['network_magic'])
 
@@ -166,7 +166,7 @@ def create_address(network, address_type, addresses_path, address_prefix, name):
     '--'+address_prefix+'-verification-key-file', vkey_file, '--out-file', addr_file]
   subprocess_run(run_params, capture_output=False, text=True)
  
-  return
+  return get_address(addr_file)
 
 def get_transaction_file(token, file_type):
   if file_type == 'draft':

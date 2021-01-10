@@ -4,11 +4,12 @@ Create Cardano Key pair and Address
 from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
-from tokutils import create_keypair
+from tokutils import create_keypair, get_address
 from transaction import create_address
 
 def create_payment_address(network, addresses_path, address_name):
-  create_address(network,'address', addresses_path, 'payment', address_name.capitalize())
+  address = create_address(network,'address', addresses_path, 'payment', address_name.capitalize())
+  print(address_name, 'payment address :', address)
   return
 
 def create_payment_keypair(addresses_path, address_name):
@@ -16,7 +17,8 @@ def create_payment_keypair(addresses_path, address_name):
   return
 
 def create_stake_address(network, addresses_path, address_name):
-  create_address(network, 'stake-address', addresses_path, 'stake', address_name.capitalize())
+  address = create_address(network, 'stake-address', addresses_path, 'stake', address_name.capitalize())
+  print(address_name, 'stake address :', address)
   return
 
 def create_stake_keypair(addresses_path, address_name):
@@ -67,6 +69,7 @@ def main():
   # check parameters
   if not any(vars(args).values()):
     parser.print_help()
+    return
 
   name = args.name
   if(args.payment_key is True):
