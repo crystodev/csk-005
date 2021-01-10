@@ -3,6 +3,7 @@ This modules provides some Cardano blockchain transaction tools
 """
 from os import path
 from subprocess import run as subprocess_run
+from tokutils import get_protocol_keydeposit
 
 def split_list(tx):
   """
@@ -11,10 +12,21 @@ def split_list(tx):
   idx_list = [idx for idx, val in enumerate(tx) if val == '+']
   idx_list1 = [idx+1 for idx, val in enumerate(tx) if val == '+']
   size = len(tx)
+  if(size == 2):
+    # lovelace only
+    return [tx]
+  
+  # lovelace + tokens
   tx = [tx[i: j] for i, j in
       zip([0] + idx_list1, idx_list + 
       ([size] if idx_list[-1] != size else []))]
   return tx
+
+def build_burn_transaction(network, address, token, amount, policy_id, utxo, fee, out_file):
+  """
+  build burn transaction for token
+  """
+  return build_mint_transaction(network, address, token, -amount, policy_id, utxo, fee, out_file)
 
 def build_mint_transaction(network, address, token, amount, policy_id, utxo, fee, out_file):
   """
@@ -34,38 +46,47 @@ def build_mint_transaction(network, address, token, amount, policy_id, utxo, fee
   subprocess_run(run_params, capture_output=False, text=True)
   return
 
-def build_burn_transaction(network, address, token, amount, policy_id, utxo, fee, out_file):
-  """
-  build burn transaction for token
-  """
-  return build_mint_transaction(network, address, token, -amount, policy_id, utxo, fee, out_file)
-
 def build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, fee, out_file):
   """
   build transfer transaction for token
   """
-  # TODO : Calculate min ADA amount for transaction instead of fixed 2000000 
+  key_deposit = get_protocol_keydeposit(network)
+  lovelace_amount = ada_amount * 1000000
+  if lovelace_amount == 0:
+    lovelace_amount = key_deposit
+  elif lovelace_amount < key_deposit:
+    if not fee == 0:
+      print('To few lovelace for transaction', ada_amount, 'ADA ; you need at least', key_deposit, 'lovelace for transaction')
+    return False
   network_era = network['network_era']
   ada_id = 'lovelace'
-  asset_id = policy_id+'.'+token
   balances = utxo['balances'].copy()
-  balances[ada_id] = balances[ada_id]-fee-2000000
-  balances[asset_id] = balances[asset_id]-token_amount
+  balances[ada_id] = balances[ada_id]-fee-lovelace_amount
+  if token is not None:
+    asset_id = policy_id+'.'+token
+    balances[asset_id] = balances[asset_id]-token_amount
   tx_out_src=source_address
   for key, value in balances.items():
     tx_out_src=tx_out_src+' +'+str(value)+' '+key
-  tx_out_dst = destination_address+'+2000000 lovelace+'+str(token_amount)+' '+asset_id
+  tx_out_dst = destination_address+'+'+str(lovelace_amount)+' lovelace+'+str(token_amount)
+  if token is not None:
+    tx_out_dst = tx_out_dst +' '+asset_id
   
   run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + ['--tx-out', tx_out_dst, '--tx-out', tx_out_src, '--out-file', out_file]
   subprocess_run(run_params, capture_output=False, text=True)
+  return True
 
-  return
+def calculate_burn_fees(network, address, token, amount, policy_id, utxo, protparams_file):
+  """
+  calculate fee for burn transaction
+  """
+  return calculate_mint_fees(network, address, token, amount, policy_id, utxo, protparams_file)
 
 def calculate_mint_fees(network, address, token, amount, policy_id, utxo, protparams_file):
   """
-  calculate fee for on chain mint transaction
+  calculate fee for mint transaction
   """
-  draft_file = '/tmp/'+token+'.txbody-draft'
+  draft_file = get_transaction_file(token, 'draft')
   build_mint_transaction(network, address, token, amount, policy_id, utxo, 0, draft_file)
 
   rc = subprocess_run(['cardano-cli', 'transaction', 'calculate-min-fee', '--tx-body-file', draft_file, '--tx-in-count', str(utxo['count_utxo']), \
@@ -74,17 +95,12 @@ def calculate_mint_fees(network, address, token, amount, policy_id, utxo, protpa
   min_fee = int(rc.stdout.split(' ')[0])
   return min_fee
 
-def calculate_burn_fees(network, address, token, amount, policy_id, utxo, protparams_file):
-  """
-  calculate fee for on chain burn transaction
-  """
-  return calculate_mint_fees(network, address, token, amount, policy_id, utxo, protparams_file)
-
 def calculate_send_fees(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, protparams_file):
   """
-  calculate fee for on chain transfer transaction
+  calculate fee for transfer transaction
   """
-  draft_file = '/tmp/'+token+'.txbody-draft'
+  draft_file = get_transaction_file(token, 'draft')
+
   build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, 0, draft_file)
   rc = subprocess_run(['cardano-cli', 'transaction', 'calculate-min-fee', '--tx-body-file', draft_file, '--tx-in-count', str(utxo['count_utxo']), \
     '--tx-out-count', '1', '--witness-count', '1', '--byron-witness-count', '0', '--protocol-params-file', protparams_file], \
@@ -92,9 +108,47 @@ def calculate_send_fees(network, destination_address, source_address, ada_amount
   min_fee = int(rc.stdout.split(' ')[0])
   return min_fee
 
+def get_address_key_file(addresses_path, address_type, address_or_key, name):
+  """
+  give file name for name type address or key
+  """
+  if not address_type in ['payment', 'stake']:
+    print('Unknown address type :', address_type)
+    return None
+  if address_or_key == 'address':
+    ext = '.addr'
+  elif address_or_key == 'signing_key':
+    ext = '.skey'
+  elif address_or_key == 'verification_key':
+    ext = '.vkey'
+  else:
+    print('Unknown type :', address_or_key)
+    return None
+
+  addr_key_file = addresses_path+address_type+name+ext
+  return addr_key_file
+
+def get_address_file(addresses_path, address_type, name):
+  """
+  give file name for name type address
+  """
+  return get_address_key_file(addresses_path, address_type, 'address', name)
+
+def get_skey_file(addresses_path, address_type, name):
+  """
+  give file name for name type address
+  """
+  return get_address_key_file(addresses_path, address_type, 'signing_key', name)
+
+def get_vkey_file(addresses_path, address_type, name):
+  """
+  give file name for name type address
+  """
+  return get_address_key_file(addresses_path, address_type, 'verification_key', name)
+
 def create_address(network, address_type, addresses_path, address_prefix, name):
   """
-  create address based on address_name
+  create address based on name
   """
   vkey_file = addresses_path+address_prefix+name+'.vkey'
 
@@ -114,6 +168,22 @@ def create_address(network, address_type, addresses_path, address_prefix, name):
  
   return
 
+def get_transaction_file(token, file_type):
+  if file_type == 'draft':
+    ext = 'txbody.draft'
+  elif file_type == 'ok-fee':
+    ext = '.txbody-ok-fee'
+  elif file_type == 'sign':
+    ext = '.tx.sign'
+  else:
+    ext = ''
+
+  if token is None:
+    file_name = '/tmp/lovelace'+ext
+  else:
+    file_name = '/tmp/'+token+ext
+  return file_name
+  
 def get_utxo_from_wallet(network, address):
   """
   get utxo from wallet
@@ -127,6 +197,7 @@ def get_utxo_from_wallet(network, address):
   tx_disp = subprocess_run(['cardano-cli', 'query', 'utxo', network_name, network_magic, network_era, '--address', address], \
     capture_output=True, text=True, env=env_param)
   tx_list = tx_disp.stdout.split('\n')
+  utxo['raw'] = tx_list
   tx_list = [tx.split() for tx in tx_list[2:] if tx != ""]
   t_list = [["--tx-in",tx[0]+'#'+tx[1]] for tx in tx_list]
   # flatten list

@@ -4,7 +4,7 @@ Utility module for Cardano Token manipulation
 from os import makedirs, path
 from subprocess import run as subprocess_run 
 from collections import defaultdict
-from json import dump as json_dump
+from json import dump as json_dump, loads as json_loads
 
 def calculate_tokens_balance(tokens):
   """
@@ -76,6 +76,9 @@ def get_address(address_file):
   """
   get address from file
   """
+  if not path.exists(address_file) :
+    print("file not found :", address_file)
+    return None
   addr_file = open(address_file,'r')
   address = addr_file.readlines()
   return address[0]
@@ -85,6 +88,8 @@ def get_policy(token_name, tokens_path):
   """
   get policy for token
   """
+  if token_name is None:
+    return {}
   policy_script=tokens_path+token_name+'/policy.script'
   policy_vkey=tokens_path+token_name+'/policy.vkey'
   policy_skey=tokens_path+token_name+'/policy.skey'
@@ -101,6 +106,18 @@ def get_policy(token_name, tokens_path):
     return policy
   else:
     return {}
+
+def get_protocol_keydeposit(network):
+  """
+  get keyDeposit parameter from protocol
+  """
+  network_name = network['network']
+  network_magic = str(network['network_magic'])
+  network_era = network['network_era']
+  env_param = network['env']
+  rc = subprocess_run(['cardano-cli', 'query', 'protocol-parameters', network_name, network_magic, network_era], \
+    capture_output=True, text=True, env=env_param)
+  return int(json_loads(rc.stdout)['keyDeposit'])
 
 def get_protocol_parameters(network, protparams_file):
   """
