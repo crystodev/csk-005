@@ -60,20 +60,19 @@ def main():
   # parse command line parameters
   example_text = '''example:
 
-  python3 %(prog)s --address paymentBob.addr --name Alice --token TOK --amount 10000
+  python3 %(prog)s --destination Bob --source Alice --token TOK 10000
   ;
-  python3 %(prog)s --address paymentBob.addr --from--address paymentAlice.addr paymentAlice.skey --token TOK --amount 10000
+  python3 %(prog)s --to-address paymentBob.addr --from--address paymentAlice.addr paymentAlice.skey --token TOK 10000
   '''
   parser = ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
   group_src = parser.add_mutually_exclusive_group(required=True)
-  group_src.add_argument('-n', '--name', help='payer name')
+  group_src.add_argument('-s', '--source', help='payer name')
   group_src.add_argument('-f', '--from-address', nargs=2, help='payer address_file and signing_key_file')
   group_dst = parser.add_mutually_exclusive_group(required=True)
   group_dst.add_argument('-d', '--destination', help='destination address owner name')
   group_dst.add_argument('-a', '--address', help='destination address')
   group_dst.add_argument('--to-address', help='destination address_file')
-  parser.add_argument('-t', '--token', help='token name', default=None)
-  parser.add_argument('--amount', type=int, help='token amount', default=0)
+  parser.add_argument('-t', '--token', nargs=2, help='token name and token amount', default=None)
   parser.add_argument('--ada', type=int, help='ada amount', default=0)
   args = parser.parse_args()
 
@@ -90,8 +89,8 @@ def main():
   addresses_path = getenv('ADDRESSES_PATH')
   
   # set parameters
-  if args.name:
-    name = args.name
+  if args.source:
+    name = args.source
     src_address = get_address(get_address_file(addresses_path, 'payment', name))
     skey_file = get_skey_file(addresses_path, 'payment', name)
   else:
@@ -106,8 +105,12 @@ def main():
   if dst_address is None :
     print("Invalid destination address")
     return
-  token = args.token
-  token_amount = args.amount
+
+  if args.token:
+    token = args.token[0]
+    token_amount = int(args.token[1])
+  else:
+    token_amount = 0
   ada_amount = args.ada
 
   # send token

@@ -87,9 +87,15 @@ def build_send_transaction(network, destination_address, source_address, ada_amo
   ada_id = 'lovelace'
   balances = utxo['balances'].copy()
   balances[ada_id] = balances[ada_id]-fee-lovelace_amount
+  if balances[ada_id] < 0 :
+    print(source_address, "does not have", fee+lovelace_amount, "lovelaces (", fee+lovelace_amount/1000000, "ada )")
+    return False
   if token is not None:
     asset_id = policy_id+'.'+token
     balances[asset_id] = balances[asset_id]-token_amount
+  if balances[asset_id] < 0 :
+    print(source_address, "does not have", token_amount, token)
+    return False
   tx_out_src=source_address
   for key, value in balances.items():
     tx_out_src=tx_out_src+' +'+str(value)+' '+key
