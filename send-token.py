@@ -65,10 +65,13 @@ def main():
   python3 %(prog)s --address paymentBob.addr --from--address paymentAlice.addr paymentAlice.skey --token TOK --amount 10000
   '''
   parser = ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
-  group = parser.add_mutually_exclusive_group(required=True)
-  group.add_argument('-n', '--name', help='payer name')
-  group.add_argument('-f', '--from-address', nargs=2, help='payer address_file and signing_key_file')
-  parser.add_argument('-a', '--address', help='destination address file', required=True)
+  group_src = parser.add_mutually_exclusive_group(required=True)
+  group_src.add_argument('-n', '--name', help='payer name')
+  group_src.add_argument('-f', '--from-address', nargs=2, help='payer address_file and signing_key_file')
+  group_dst = parser.add_mutually_exclusive_group(required=True)
+  group_dst.add_argument('-d', '--destination', help='destination address owner name')
+  group_dst.add_argument('-a', '--address', help='destination address')
+  group_dst.add_argument('--to-address', help='destination address_file')
   parser.add_argument('-t', '--token', help='token name', default=None)
   parser.add_argument('--amount', type=int, help='token amount', default=0)
   parser.add_argument('--ada', type=int, help='ada amount', default=0)
@@ -89,18 +92,25 @@ def main():
   # set parameters
   if args.name:
     name = args.name
-    print(name)
     src_address = get_address(get_address_file(addresses_path, 'payment', name))
     skey_file = get_skey_file(addresses_path, 'payment', name)
   else:
     src_address = get_address(addresses_path+args.from_address[0])
     skey_file= addresses_path+args.from_address[1]
-  dst_address = get_address(addresses_path+args.address)
+  if args.destination:
+    dst_address = get_address(get_address_file(addresses_path, 'payment', args.destination))
+  elif args.address:
+    dst_address = args.address
+  else:
+    dst_address = get_address(addresses_path+args.to_address)
+  if dst_address is None :
+    print("Invalid destination address")
+    return
   token = args.token
   token_amount = args.amount
   ada_amount = args.ada
 
-  # mint token
+  # send token
   send(network, dst_address, src_address, skey_file, ada_amount, token, token_amount)
 
 if __name__ == '__main__':

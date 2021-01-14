@@ -72,6 +72,9 @@ def build_send_transaction(network, destination_address, source_address, ada_amo
   if utxo['count_utxo'] == 0:
     print("No utxo found")
     return False
+  if destination_address is None:
+    print("No valid destination address")
+    return False
   key_deposit = get_protocol_keydeposit(network)
   lovelace_amount = ada_amount * 1000000
   if lovelace_amount == 0:
