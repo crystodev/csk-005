@@ -29,7 +29,7 @@ def build_burn_transaction(network, address, token_name, token_amount, policy_id
   """
   token_id = policy_id+'.'+token_name
   if token_id not in utxo['balances']:
-    print("Cannot burn token", token_name, ": no token")
+    print("Cannot burn token", token_name, "with policy", policy_id, ": no token")
     return False
   if utxo['balances'].get(token_id) < token_amount: 
     print("Cannot burn token", token_name, ": not enough token")
@@ -66,9 +66,9 @@ def build_mint_transaction(network, source_address, destination_address, token_n
   """
   if token_name is None or token_amount == 0:
     return False
-  return build_send_transaction(network, destination_address, source_address, 0, token_name, token_amount, True, policy_id, utxo, fee, out_file)
-
-def build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, do_mint, policy_id, utxo, fee, out_file):
+  return build_send_transaction(network, source_address, destination_address, 0, token_name, token_amount, True, policy_id, utxo, fee, out_file)
+00
+def build_send_transaction(network, source_address, destination_address, ada_amount, token, token_amount, do_mint, policy_id, utxo, fee, out_file):
   """
   build transfer transaction for token
   """
@@ -158,14 +158,14 @@ def calculate_mint_fees(network, address, token, amount, policy_id, utxo, protpa
   min_fee = int(rc.stdout.split(' ')[0])
   return min_fee
 
-def calculate_send_fees(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, protparams_file):
+def calculate_send_fees(network, source_address, destination_address, ada_amount, token, token_amount, policy_id, utxo, protparams_file):
   """
   calculate fee for transfer transaction
   """
   draft_file = get_transaction_file(token, 'draft')
 
-  rc = build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, False, policy_id, utxo, 0, draft_file)
-  if not rc:
+  rc = build_send_transaction(network, source_address, destination_address, ada_amount, token, token_amount, False, policy_id, utxo, 0, draft_file)
+  if not rc: 
     print("Failed to build transaction")
     return None
   rc = subprocess_run(['cardano-cli', 'transaction', 'calculate-min-fee', '--tx-body-file', draft_file, '--tx-in-count', str(utxo['count_utxo']), \

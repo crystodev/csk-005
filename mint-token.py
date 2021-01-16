@@ -68,9 +68,9 @@ def main():
   # parse command line parameters
   example_text = '''example:
 
-  python3 %(prog)s --source Alice --policy POL --token TOK --amount 10000
+  python3 %(prog)s --source Alice --policy POL --token TOK 10000
   ;
-  python3 %(prog)s --from-address paymentAlice.addr paymentAlice.skey --policy POL --token TOK --amount 10000
+  python3 %(prog)s --from-address paymentAlice.addr paymentAlice.skey --policy POL --token TOK 10000
   '''
   parser = ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
   group_src = parser.add_mutually_exclusive_group(required=True)
@@ -80,8 +80,7 @@ def main():
   group_dst.add_argument('-d', '--destination', help='destination address owner name')
   group_dst.add_argument('-a', '--address', help='destination address')
   group_dst.add_argument('--to-address', help='destination address_file')
-  parser.add_argument('-t', '--token', help='token name', required=True)
-  parser.add_argument('--amount', type=int, help='token amount', default =0)
+  parser.add_argument('-t', '--token', nargs=2, help='token name and token amount', required=True)
   parser.add_argument('-p', '--policy', help='policy name', required=True)
   args = parser.parse_args()
 
@@ -105,8 +104,12 @@ def main():
   else:
     src_address = get_address(addresses_path+args.from_address[0])
     skey_file= addresses_path+args.from_address[1]
-  token = args.token
-  amount = args.amount
+  if args.token:
+    token_name = args.token[0]
+    token_amount = int(args.token[1])
+  else:
+    token_name = None
+    token_amount = 0
   if args.destination:
     dst_address = get_address(get_address_file(addresses_path, 'payment', args.destination.capitalize()))
   elif args.address:
@@ -118,7 +121,7 @@ def main():
   policy_name = args.policy
 
   # mint token
-  mint(network, src_address, skey_file, dst_address, policy_name, token, amount)
+  mint(network, src_address, skey_file, dst_address, policy_name, token_name, token_amount)
 
 if __name__ == '__main__':
   main()

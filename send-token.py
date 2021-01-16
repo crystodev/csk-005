@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from tokutils import calculate_tokens_balance, get_policy, get_address, get_address_file, get_skey_file, get_protocol_parameters
 from transaction import build_send_transaction, calculate_send_fees, get_transaction_file, get_utxo_from_wallet, sign_send_transaction, submit_transaction
 
-def send(network, destination_address, source_address, skey_file, ada_amount, policy_name, token_name, token_amount):
+def send(network, source_address, destination_address, skey_file, ada_amount, policy_name, token_name, token_amount):
   """
   send amount of token for address on given network
   """
@@ -45,13 +45,13 @@ def send(network, destination_address, source_address, skey_file, ada_amount, po
   utxo['balances'] = calculate_tokens_balance(utxo['tokens'])
 
   # 5. Calculate fees for the transaction
-  min_fee = calculate_send_fees(network, destination_address, source_address, ada_amount, token_name, token_amount, policy_id, utxo, protocol_parameters_file)
+  min_fee = calculate_send_fees(network, source_address, destination_address, ada_amount, token_name, token_amount, policy_id, utxo, protocol_parameters_file)
   if min_fee is None:
     return False
 
   # 6. Build actual transaction including correct fees
   ok_fee_file = get_transaction_file(token_name, 'ok-fee')
-  rc = build_send_transaction(network, destination_address, source_address, ada_amount, token_name, token_amount, False, policy_id, utxo, min_fee, ok_fee_file)
+  rc = build_send_transaction(network, source_address, destination_address, ada_amount, token_name, token_amount, False, policy_id, utxo, min_fee, ok_fee_file)
   if not rc:
     print('Transaction aborted')
     return False
@@ -132,7 +132,7 @@ def main():
     policy_name = None
 
   # send token
-  send(network, dst_address, src_address, skey_file, ada_amount, policy_name, token, token_amount)
+  send(network, src_address, dst_address, skey_file, ada_amount, policy_name, token, token_amount)
 
 if __name__ == '__main__':
   main()

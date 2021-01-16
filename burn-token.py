@@ -59,16 +59,15 @@ def main():
   # parse command line parameters
   example_text = '''example:
 
-  python3 %(prog)s --name Alice --token TOK --amount 10000
+  python3 %(prog)s --name Alice --token TOK 10000
   ;
-  python3 %(prog)s --address paymentAlice.addr paymentAlice.skey --token TOK --amount 10000
+  python3 %(prog)s --address paymentAlice.addr paymentAlice.skey --token TOK 10000
   '''
   parser = ArgumentParser(description='Burn amount Token for address with signing key.', epilog=example_text)
   group = parser.add_mutually_exclusive_group(required=True)
   group.add_argument('-s', '--source', help='mint address owner name')
   group.add_argument('-a', '--address', nargs=2, help='address_file and signing_key_file')
-  parser.add_argument('-t', '--token', help='token name', required=True)
-  parser.add_argument('--amount', type=int, help='token amount', required=True)
+  parser.add_argument('-t', '--token', nargs=2, help='token name and token amount', required=True)
   parser.add_argument('-p', '--policy', help='policy name', required=False)
   args = parser.parse_args()
 
@@ -92,14 +91,18 @@ def main():
   else:
     address = get_address(addresses_path+args.address[0])
     skey_file= addresses_path+args.address[1]
-  token = args.token
-  amount = args.amount
+  if args.token:
+    token_name = args.token[0]
+    token_amount = int(args.token[1])
+  else:
+    token_name = None
+    token_amount = 0
   if args.policy:
     policy_name = args.policy
   else:
     policy_name = None
   # burn token
-  burn(network, address, skey_file, policy_name, token, amount)
+  burn(network, address, skey_file, policy_name, token_name, token_amount)
 
 if __name__ == '__main__':
   main()
