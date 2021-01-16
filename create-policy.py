@@ -16,6 +16,7 @@ def main():
 
   parser = ArgumentParser(description='Create Cardano minting policy')
   parser.add_argument('policy', help='policy name')
+  parse.add_argument('-o', '--owner', help='address owner name')
   args = parser.parse_args()
 
   # load env vars
@@ -27,13 +28,15 @@ def main():
   network['network'] = '--'+getenv('NETWORK')
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
-  network['policies_path'] = getenv('POLICIES_PATH')
+  network['policies_path'] = getenv('POLICIES_FOLDER')
   addresses_path = getenv('ADDRESSES_PATH')
   
   # set parameters
-
+  if args.owner:
+    name = args.owner.capitalize()
+  
   # create policy
-  policy = create_policy(args.policy, network['policies_path'])
+  policy = create_policy(name, args.policy, network['policies_path'])
   if (policy == {}):
     print("Policy", args.policy, "not created")
     return

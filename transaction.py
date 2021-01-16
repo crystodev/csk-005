@@ -4,7 +4,7 @@ This module provides some Cardano blockchain transaction tools
 from os import path
 from json import loads as json_loads
 from subprocess import run as subprocess_run
-from tokutils import get_address, get_protocol_keydeposit
+from tokutils import get_address, get_address_file, get_vkey_file, get_protocol_keydeposit
 
 def split_list(tx):
   """
@@ -78,7 +78,7 @@ def build_send_transaction(network, source_address, destination_address, ada_amo
   if ada_amount == 0 and token_amount == 0:
     print("Nothing to send")
     return False
-  if policy_id == "":
+  if policy_id == "" or policy_id == None:
     print("No policy_id")
     return False
   if utxo['count_utxo'] == 0:
@@ -185,12 +185,11 @@ def create_address(network, address_type, addresses_path, address_prefix, name):
   """
   create address based on name
   """
-  vkey_file = addresses_path+address_prefix+name+'.vkey'
-
+  vkey_file = get_vkey_file(addresses_path, address_prefix, name)
   if not path.exists(vkey_file) :
     print(address_prefix, "verification key missing for", name)
     return None
-  addr_file = addresses_path+address_prefix+name+'.addr'
+  addr_file = get_address_file(addresses_path, address_prefix, name)
   if path.exists(addr_file) :
     print(address_prefix, "address already exists for", name)
     return get_address(addr_file)

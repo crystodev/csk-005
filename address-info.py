@@ -61,13 +61,12 @@ def main():
   load_dotenv()
   env_param = environ
   env_param['CARDANO_NODE_SOCKET_PATH'] = getenv('CARDANO_NODE_SOCKET_PATH')
+  addresses_path = getenv('ADDRESSES_PATH')
   network = {}
   network['env'] = env_param
   network['network'] = '--'+getenv('NETWORK')
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
-  network['policies_path'] = getenv('POLICIES_PATH')
-  addresses_path = getenv('ADDRESSES_PATH')
   
   # check parameters
   if not any(vars(args).values()):

@@ -20,26 +20,26 @@ def create_keypair(address_type, addresses_path, address_prefix, name):
   """
   create keypair based on address_name
   """
-  vkey_file = addresses_path+address_prefix+name+'.vkey'
-  skey_file = addresses_path+address_prefix+name+'.skey'
+  vkey_file = get_vkey_file(addresses_path, address_prefix, name)
+  skey_file = get_skey_file(addresses_path, address_prefix, name)
 
   if(path.exists(vkey_file)) :
     print(address_prefix, "key pair already exists for", name)
     return
   
-  makedirs(addresses_path, mode=0o777, exist_ok=True)
+  makedirs(path.dirname(vkey_file), mode=0o777, exist_ok=True)
 
   run_params = ['cardano-cli', address_type, 'key-gen', '--verification-key-file', vkey_file, '--signing-key-file', skey_file]
   subprocess_run(run_params, capture_output=False, text=True)
   return
 
-def create_policy(policy_name, policies_path):
+def create_policy(policy_name, policy_path):
   """
   create policy
   """
-  policy_script=policies_path+policy_name+'/policy.script'
-  policy_vkey=policies_path+policy_name+'/policy.vkey'
-  policy_skey=policies_path+policy_name+'/policy.skey'
+  policy_script=policy_path+'policy.script'
+  policy_vkey=policy_path+'policy.vkey'
+  policy_skey=policy_path+'policy.skey'
   policy = {}
   policy['policy_script'] = policy_script
   policy['policy_vkey'] = policy_vkey
@@ -53,7 +53,7 @@ def create_policy(policy_name, policies_path):
     policy['policy_id'] = policy_id.stdout.decode().replace('\n', '')
     return policy
 
-  makedirs(policies_path+policy_name, mode=0o777, exist_ok=True)
+  makedirs(policies_folder+policy_name, mode=0o777, exist_ok=True)
 
   rc = subprocess_run(['cardano-cli', 'address', 'key-gen', '--verification-key-file', policy_vkey, '--signing-key-file', policy_skey], capture_output=False)
 
@@ -83,16 +83,16 @@ def get_address(address_file):
   address = addr_file.readlines()
   return address[0]
 
-
-def get_policy(policy_name, policies_path):
+def get_policy(policy_name, policy_path):
   """
   get policy
   """
   if policy_name is None:
     return {}
-  policy_script=policies_path+policy_name+'/policy.script'
-  policy_vkey=policies_path+policy_name+'/policy.vkey'
-  policy_skey=policies_path+policy_name+'/policy.skey'
+  policy_script=policy_path+'policy.script'
+  policy_vkey=policy_path+'policy.vkey'
+  policy_skey=policy_path+'policy.skey'
+
   policy = {}
   policy['policy_script'] = policy_script
   policy['policy_vkey'] = policy_vkey
@@ -107,6 +107,17 @@ def get_policy(policy_name, policies_path):
     return policy
   else:
     return {}
+
+def get_policy_id(token_name, utxo):
+  """
+  retrieve policy id from token name in utxo
+  """
+  assets_id = [k.split('.') for k in utxo['balances'].keys() if len(k.split('.')) == 2 and k.split('.')[1] == token_name]
+  if len(assets_id) == 1:
+    policy_id = assets_id[0][0]
+  else:
+    policy_id = None
+  return policy_id
 
 def get_protocol_keydeposit(network):
   """
@@ -132,6 +143,12 @@ def get_protocol_parameters(network, protparams_file):
     capture_output=False, text=True, env=env_param)
   return 
 
+def get_policy_path(address_path, owner, policy_name, policies_folder):
+  return get_address_path(address_path, owner)+policies_folder+policy_name+'/'
+
+def get_address_path(addresses_path, name):
+  return addresses_path+name+'/'
+
 def get_address_key_file(addresses_path, address_type, address_or_key, name):
   """
   give file name for name type address or key
@@ -149,7 +166,7 @@ def get_address_key_file(addresses_path, address_type, address_or_key, name):
     print('Unknown type :', address_or_key)
     return None
 
-  addr_key_file = addresses_path+address_type+name+ext
+  addr_key_file = get_address_path(addresses_path, name)+address_type+name+ext
   return addr_key_file
 
 def get_address_file(addresses_path, address_type, name):

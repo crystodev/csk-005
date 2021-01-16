@@ -5,10 +5,10 @@ Mint Cardano Token
 from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
-from tokutils import calculate_tokens_balance, create_policy, get_address, get_address_file, get_skey_file, get_policy, get_protocol_parameters
+from tokutils import calculate_tokens_balance, create_policy, get_address, get_address_file, get_skey_file, get_policy, get_policy_path, get_protocol_parameters
 from transaction import build_mint_transaction, calculate_mint_fees, get_transaction_file, get_utxo_from_wallet, sign_mint_transaction, submit_transaction
 
-def mint(network, src_address, skey_file, dst_address, policy_name, token_name, token_amount):
+def mint(network, owner, src_address, skey_file, dst_address, policy_name, token_name, token_amount):
   """
   mint amount of token for address on given network
   """
@@ -68,14 +68,13 @@ def main():
   # parse command line parameters
   example_text = '''example:
 
-  python3 %(prog)s --source Alice --policy POL --token TOK 10000
+  python3 %(prog)s --owner Alice --policy POL --token TOK 10000
   ;
-  python3 %(prog)s --from-address paymentAlice.addr paymentAlice.skey --policy POL --token TOK 10000
+  python3 %(prog)s -owner Alice --from-address paymentAlice.addr paymentAlice.skey --policy POL --token TOK 10000
   '''
   parser = ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
-  group_src = parser.add_mutually_exclusive_group(required=True)
-  group_src.add_argument('-s', '--source', help='mint address owner name')
-  group_src.add_argument('-f', '--from-address', nargs=2, help='mint address_file and signing_key_file')
+  parser.add_argument('-o', '--owner', help='mint address owner name', required=True)
+  parser.add_argument('-f', '--from-address', nargs=2, help='mint address_file and signing_key_file')
   group_dst = parser.add_mutually_exclusive_group(required=False)
   group_dst.add_argument('-d', '--destination', help='destination address owner name')
   group_dst.add_argument('-a', '--address', help='destination address')
@@ -93,17 +92,18 @@ def main():
   network['network'] = '--'+getenv('NETWORK')
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
-  network['policies_path'] = getenv('POLICIES_PATH')
   addresses_path = getenv('ADDRESSES_PATH')
-  
+
   # set parameters
-  if args.source:
-    name = args.source.capitalize()
-    src_address = get_address(get_address_file(addresses_path, 'payment', name))
-    skey_file = get_skey_file(addresses_path, 'payment', name)
-  else:
+  name = args.owner.capitalize()
+  policy_name = args.policy
+  network['policies_path'] = get_policy_path(addresses_path, name, policy_name, getenv('POLICIES_FOLDER'))
+  if args.from_address:
     src_address = get_address(addresses_path+args.from_address[0])
     skey_file= addresses_path+args.from_address[1]
+  else:
+    src_address = get_address(get_address_file(addresses_path, 'payment', name))
+    skey_file = get_skey_file(addresses_path, 'payment', name)
   if args.token:
     token_name = args.token[0]
     token_amount = int(args.token[1])
@@ -118,10 +118,9 @@ def main():
     dst_address = get_address(addresses_path+args.to_address)
   else :
     dst_address = src_address
-  policy_name = args.policy
 
   # mint token
-  mint(network, src_address, skey_file, dst_address, policy_name, token_name, token_amount)
+  mint(network, name, src_address, skey_file, dst_address, policy_name, token_name, token_amount)
 
 if __name__ == '__main__':
   main()

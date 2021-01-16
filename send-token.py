@@ -5,7 +5,7 @@ Send some Cardano Token
 from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
-from tokutils import calculate_tokens_balance, get_policy, get_address, get_address_file, get_skey_file, get_protocol_parameters
+from tokutils import calculate_tokens_balance, get_policy_id, get_address, get_address_file, get_skey_file, get_protocol_parameters
 from transaction import build_send_transaction, calculate_send_fees, get_transaction_file, get_utxo_from_wallet, sign_send_transaction, submit_transaction
 
 def send(network, source_address, destination_address, skey_file, ada_amount, policy_name, token_name, token_amount):
@@ -22,19 +22,6 @@ def send(network, source_address, destination_address, skey_file, ada_amount, po
     print("Nothing to send")
     return False
 
-  # 1. Get policy for our token
-  if token_name is not None:
-    if policy_name is None:
-      policy = get_policy(token_name, network['policies_path'])
-    else :
-      policy = get_policy(policy_name, network['policies_path'])
-    if (policy == {}):
-      print("Token does not exist : no policy for token", token_name)
-      return False
-    policy_id = policy['policy_id']
-  else:
-    policy_id = None
-
   # 2. Extract protocol parameters (needed for fee calculations)
   get_protocol_parameters(network, protocol_parameters_file)
 
@@ -43,6 +30,12 @@ def send(network, source_address, destination_address, skey_file, ada_amount, po
 
   # 4. Calculate tokens balance
   utxo['balances'] = calculate_tokens_balance(utxo['tokens'])
+
+  # 4.1 Get policy for our token
+  policy_id = get_policy_id(token_name, utxo)
+  if policy_id is None:
+    print("No", token_name, "token available at", source_address)
+    return False
 
   # 5. Calculate fees for the transaction
   min_fee = calculate_send_fees(network, source_address, destination_address, ada_amount, token_name, token_amount, policy_id, utxo, protocol_parameters_file)
@@ -98,7 +91,7 @@ def main():
   network['network'] = '--'+getenv('NETWORK')
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
-  network['policies_path'] = getenv('POLICIES_PATH')
+  network['policies_path'] = getenv('POLICIES_FOLDER')
   addresses_path = getenv('ADDRESSES_PATH')
   
   # set parameters
