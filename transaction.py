@@ -1,5 +1,5 @@
 """
-This modules provides some Cardano blockchain transaction tools
+This module provides some Cardano blockchain transaction tools
 """
 from os import path
 from json import loads as json_loads
@@ -23,23 +23,17 @@ def split_list(tx):
       ([size] if idx_list[-1] != size else []))]
   return tx
 
-def build_burn_transaction(network, address, token, amount, policy_id, utxo, fee, out_file):
+def build_burn_transaction(network, address, token_name, token_amount, policy_id, utxo, fee, out_file):
   """
   build burn transaction for token
   """
-  token_id = policy_id+'.'+token
+  token_id = policy_id+'.'+token_name
   if token_id not in utxo['balances']:
-    print("Cannot burn token", token, ": no token")
+    print("Cannot burn token", token_name, ": no token")
     return False
-  if utxo['balances'].get(token_id) < amount: 
-    print("Cannot burn token", token, ": not enough token")
+  if utxo['balances'].get(token_id) < token_amount: 
+    print("Cannot burn token", token_name, ": not enough token")
     return False
-  return build_mint_transaction(network, address, token, -amount, policy_id, utxo, fee, out_file)
-
-def build_mint_transaction(network, address, token, amount, policy_id, utxo, fee, out_file):
-  """
-  build mint transaction for token
-  """
   if policy_id == "":
     print("No policy_id")
     return False
@@ -48,24 +42,42 @@ def build_mint_transaction(network, address, token, amount, policy_id, utxo, fee
     return False
   network_era = network['network_era']
   ada_id = 'lovelace'
-  asset_id = policy_id+'.'+token
+  asset_id = policy_id+'.'+token_name
+  mint = str(-token_amount)+' '+asset_id
   balances = utxo['balances'].copy()
   balances[ada_id] = balances[ada_id]-fee
-  tx_out=address
+  balances[asset_id] = balances[asset_id]-token_amount
+  if balances[asset_id] < 0 :
+    print(address, "does not have", token_amount, token)
+    return False
+  tx_out = address
   for key, value in balances.items():
     tx_out=tx_out+'+'+str(value)+' '+key
-  tx_out = tx_out+' +'+str(amount)+' '+asset_id
-  mint = str(amount)+' '+asset_id
+
   ttl = calculate_ttl(network)
   run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + \
     ['--ttl', str(ttl), '--tx-out', tx_out, '--mint', mint, '--out-file', out_file]
   rc =subprocess_run(run_params, capture_output=False, text=True)
   return rc.returncode == 0
 
-def build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, fee, out_file):
+def build_mint_transaction(network, source_address, destination_address, token_name, token_amount, policy_id, utxo, fee, out_file):
+  """
+  build mint transaction for token
+  """
+  if token_name is None or token_amount == 0:
+    return False
+  return build_send_transaction(network, destination_address, source_address, 0, token_name, token_amount, True, policy_id, utxo, fee, out_file)
+
+def build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, do_mint, policy_id, utxo, fee, out_file):
   """
   build transfer transaction for token
   """
+  if ada_amount < 0 or token_amount < 0:
+    print("Can not send negative amount")
+    return False
+  if ada_amount == 0 and token_amount == 0:
+    print("Nothing to send")
+    return False
   if policy_id == "":
     print("No policy_id")
     return False
@@ -92,20 +104,25 @@ def build_send_transaction(network, destination_address, source_address, ada_amo
     return False
   if token is not None:
     asset_id = policy_id+'.'+token
-    balances[asset_id] = balances[asset_id]-token_amount
-  if balances[asset_id] < 0 :
-    print(source_address, "does not have", token_amount, token)
-    return False
+    if not do_mint :
+      balances[asset_id] = balances[asset_id]-token_amount
+      if balances[asset_id] < 0 :
+        print(source_address, "does not have", token_amount, token)
+        return False
   tx_out_src=source_address
   for key, value in balances.items():
     tx_out_src=tx_out_src+' +'+str(value)+' '+key
-  tx_out_dst = destination_address+'+'+str(lovelace_amount)+' lovelace+'+str(token_amount)
+  tx_out_dst = destination_address+'+'+str(lovelace_amount)+' lovelace'
   if token is not None:
-    tx_out_dst = tx_out_dst +' '+asset_id
+    tx_out_dst = tx_out_dst +'+'+str(token_amount)+' '+asset_id
   
   ttl = calculate_ttl(network)
-  run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + \
-    ['--ttl', str(ttl), '--tx-out', tx_out_dst, '--tx-out', tx_out_src, '--out-file', out_file]
+  if do_mint:
+    run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + \
+     ['--ttl', str(ttl), '--tx-out', tx_out_dst, '--tx-out', tx_out_src, '--mint', str(token_amount)+' '+asset_id, '--out-file', out_file]
+  else:
+    run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + \
+     ['--ttl', str(ttl), '--tx-out', tx_out_dst, '--tx-out', tx_out_src, '--out-file', out_file]
   subprocess_run(run_params, capture_output=False, text=True)
   return True
 
@@ -130,7 +147,7 @@ def calculate_mint_fees(network, address, token, amount, policy_id, utxo, protpa
   calculate fee for mint transaction
   """
   draft_file = get_transaction_file(token, 'draft')
-  rc = build_mint_transaction(network, address, token, amount, policy_id, utxo, 0, draft_file)
+  rc = build_mint_transaction(network, address, address, token, amount, policy_id, utxo, 0, draft_file)
   if not rc:
     print("Failed to build transaction")
     return None
@@ -147,7 +164,7 @@ def calculate_send_fees(network, destination_address, source_address, ada_amount
   """
   draft_file = get_transaction_file(token, 'draft')
 
-  rc = build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, policy_id, utxo, 0, draft_file)
+  rc = build_send_transaction(network, destination_address, source_address, ada_amount, token, token_amount, False, policy_id, utxo, 0, draft_file)
   if not rc:
     print("Failed to build transaction")
     return None
@@ -163,44 +180,6 @@ def calculate_ttl(network):
   tip = subprocess_run(run_params, capture_output=True, text=True)
   slot = int(json_loads(tip.stdout).get('slotNo'))+FORWARD_SLOT
   return slot
-
-def get_address_key_file(addresses_path, address_type, address_or_key, name):
-  """
-  give file name for name type address or key
-  """
-  if not address_type in ['payment', 'stake']:
-    print('Unknown address type :', address_type)
-    return None
-  if address_or_key == 'address':
-    ext = '.addr'
-  elif address_or_key == 'signing_key':
-    ext = '.skey'
-  elif address_or_key == 'verification_key':
-    ext = '.vkey'
-  else:
-    print('Unknown type :', address_or_key)
-    return None
-
-  addr_key_file = addresses_path+address_type+name+ext
-  return addr_key_file
-
-def get_address_file(addresses_path, address_type, name):
-  """
-  give file name for name type address
-  """
-  return get_address_key_file(addresses_path, address_type, 'address', name)
-
-def get_skey_file(addresses_path, address_type, name):
-  """
-  give file name for name type address
-  """
-  return get_address_key_file(addresses_path, address_type, 'signing_key', name)
-
-def get_vkey_file(addresses_path, address_type, name):
-  """
-  give file name for name type address
-  """
-  return get_address_key_file(addresses_path, address_type, 'verification_key', name)
 
 def create_address(network, address_type, addresses_path, address_prefix, name):
   """
@@ -307,5 +286,5 @@ def submit_transaction(network, sign_file):
   env_param = network['env']
   rc = subprocess_run(['cardano-cli', 'transaction', 'submit', network_name, network_magic, '--tx-file', sign_file], \
     capture_output=False, text=True, env=env_param)
-  return
+  return rc
 

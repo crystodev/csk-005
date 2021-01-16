@@ -33,13 +33,13 @@ def create_keypair(address_type, addresses_path, address_prefix, name):
   subprocess_run(run_params, capture_output=False, text=True)
   return
 
-def create_policy(token_name, tokens_path):
+def create_policy(policy_name, policies_path):
   """
-  create policy for token
+  create policy
   """
-  policy_script=tokens_path+token_name+'/policy.script'
-  policy_vkey=tokens_path+token_name+'/policy.vkey'
-  policy_skey=tokens_path+token_name+'/policy.skey'
+  policy_script=policies_path+policy_name+'/policy.script'
+  policy_vkey=policies_path+policy_name+'/policy.vkey'
+  policy_skey=policies_path+policy_name+'/policy.skey'
   policy = {}
   policy['policy_script'] = policy_script
   policy['policy_vkey'] = policy_vkey
@@ -48,12 +48,12 @@ def create_policy(token_name, tokens_path):
   # check if token exists
   # if so, returns existing policy
   if path.exists(policy_script) :
-    print("Token exists : no policy created for token", token_name)
+    print("Policy exists : no policy created for", policy_name)
     policy_id = subprocess_run(['cardano-cli', 'transaction', 'policyid', '--script-file', policy_script], capture_output=True)
     policy['policy_id'] = policy_id.stdout.decode().replace('\n', '')
     return policy
 
-  makedirs(tokens_path+token_name, mode=0o777, exist_ok=True)
+  makedirs(policies_path+policy_name, mode=0o777, exist_ok=True)
 
   rc = subprocess_run(['cardano-cli', 'address', 'key-gen', '--verification-key-file', policy_vkey, '--signing-key-file', policy_skey], capture_output=False)
 
@@ -84,24 +84,25 @@ def get_address(address_file):
   return address[0]
 
 
-def get_policy(token_name, tokens_path):
+def get_policy(policy_name, policies_path):
   """
-  get policy for token
+  get policy
   """
-  if token_name is None:
+  if policy_name is None:
     return {}
-  policy_script=tokens_path+token_name+'/policy.script'
-  policy_vkey=tokens_path+token_name+'/policy.vkey'
-  policy_skey=tokens_path+token_name+'/policy.skey'
+  policy_script=policies_path+policy_name+'/policy.script'
+  policy_vkey=policies_path+policy_name+'/policy.vkey'
+  policy_skey=policies_path+policy_name+'/policy.skey'
   policy = {}
   policy['policy_script'] = policy_script
   policy['policy_vkey'] = policy_vkey
   policy['policy_skey'] = policy_skey
 
-  # check if token exists
+  # check if policy script exists
   # if so, returns existing policy
-  if(path.exists(tokens_path+token_name)) :
-    policy_id = subprocess_run(['cardano-cli', 'transaction', 'policyid', '--script-file', policy_script], capture_output=True)
+  if(path.exists(policy_script)) :
+    run_params = ['cardano-cli', 'transaction', 'policyid', '--script-file', policy_script]
+    policy_id = subprocess_run(run_params, capture_output=True)
     policy['policy_id'] = policy_id.stdout.decode().replace('\n', '')
     return policy
   else:
@@ -130,3 +131,42 @@ def get_protocol_parameters(network, protparams_file):
   subprocess_run(['cardano-cli', 'query', 'protocol-parameters', network_name, network_magic, network_era, '--out-file', protparams_file], \
     capture_output=False, text=True, env=env_param)
   return 
+
+def get_address_key_file(addresses_path, address_type, address_or_key, name):
+  """
+  give file name for name type address or key
+  """
+  if not address_type in ['payment', 'stake']:
+    print('Unknown address type :', address_type)
+    return None
+  if address_or_key == 'address':
+    ext = '.addr'
+  elif address_or_key == 'signing_key':
+    ext = '.skey'
+  elif address_or_key == 'verification_key':
+    ext = '.vkey'
+  else:
+    print('Unknown type :', address_or_key)
+    return None
+
+  addr_key_file = addresses_path+address_type+name+ext
+  return addr_key_file
+
+def get_address_file(addresses_path, address_type, name):
+  """
+  give file name for name type address
+  """
+  return get_address_key_file(addresses_path, address_type, 'address', name)
+
+def get_skey_file(addresses_path, address_type, name):
+  """
+  give file name for name type signing key
+  """
+  return get_address_key_file(addresses_path, address_type, 'signing_key', name)
+
+def get_vkey_file(addresses_path, address_type, name):
+  """
+  give file name for name type verification key
+  """
+  return get_address_key_file(addresses_path, address_type, 'verification_key', name)
+

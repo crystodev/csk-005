@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 '''
-Get address utxo and balance for Name
+Get address value, utxo and balance for Name
 '''
 from locale import setlocale, LC_ALL
 from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
-from tokutils import calculate_tokens_balance, get_address
-from transaction import get_address_file, get_utxo_from_wallet
+from tokutils import calculate_tokens_balance, get_address, get_address_file
+from transaction import get_utxo_from_wallet
 
-def get_balance(network, name, address):
+def print_balance(network, name, address):
+
   utxo = get_utxo_from_wallet(network, address)
   if utxo is None:
     print("No transaction for address", address)
@@ -20,9 +21,10 @@ def get_balance(network, name, address):
   print('----------------------------------------------------------------------------------------')
   for token, amount in token_dict.items():
     print('%-77s%11s'% (token, "{0:n}".format(amount)))
+  print("\n")
   return
 
-def get_utxo(network, name, address):
+def print_utxo(network, name, address):
   utxo = get_utxo_from_wallet(network, address)
   if utxo is None:
     print("No transaction for address", address)
@@ -35,7 +37,7 @@ def get_utxo(network, name, address):
 def main():
   """
   read parameters from command line
-  and get utxo or balance for address name
+  and get address, utxo or balance for address name
   """
   # parse command line parameters
   example_text = '''examples:
@@ -64,27 +66,29 @@ def main():
   network['network'] = '--'+getenv('NETWORK')
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
-  network['tokens_path'] = getenv('TOKENS_PATH')
+  network['policies_path'] = getenv('POLICIES_PATH')
   addresses_path = getenv('ADDRESSES_PATH')
   
   # check parameters
   if not any(vars(args).values()):
     parser.print_help()
 
-  name = args.name
+  name = args.name.capitalize()
   if args.stake:
     address_type = 'stake'
   else:
     address_type = 'payment'
   
   address = get_address(get_address_file(addresses_path, address_type, name))
-  if(args.balance is True or args.utxo is False):
-    get_balance(network, name, address)
+  if address is None:
+    print("No", address_type, "address for", name)
+    return
+  print("Address :", address, "\n")
+  if(args.balance is True):
+    print_balance(network, name, address)
 
   if(args.utxo is True):
-    if(args.balance is True):
-      print('\n')
-    get_utxo(network, name, address)
+    print_utxo(network, name, address)
   return
 
 if __name__ == '__main__':

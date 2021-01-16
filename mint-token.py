@@ -5,45 +5,55 @@ Mint Cardano Token
 from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
-from tokutils import calculate_tokens_balance, create_policy, get_address, get_protocol_parameters
-from transaction import build_mint_transaction, calculate_mint_fees, get_address_file, get_skey_file, get_transaction_file, get_utxo_from_wallet, sign_mint_transaction, submit_transaction
+from tokutils import calculate_tokens_balance, create_policy, get_address, get_address_file, get_skey_file, get_policy, get_protocol_parameters
+from transaction import build_mint_transaction, calculate_mint_fees, get_transaction_file, get_utxo_from_wallet, sign_mint_transaction, submit_transaction
 
-def mint(network, address, skey_file, token, amount):
+def mint(network, src_address, skey_file, dst_address, policy_name, token_name, token_amount):
   """
   mint amount of token for address on given network
   """
   protocol_parameters_file = '/tmp/protparams.json'
 
   # 1. Create a policy for our token
-  policy = create_policy(token, network['tokens_path'])
+  if policy_name is None:
+    # if no policy name specified, search policy with token name
+    policy = create_policy(token_name, network['policies_path'])
+    policy_name = token_name
+  else :
+    policy = get_policy(policy_name, network['policies_path'])
+
   if (policy == {}):
-    print("Token does not exist : no policy for token", token)
+    print("Policy does not exist : no policy for token", token_name, "with policy", policy_name)
+    return
+
+  # don't mint if amount equals 0
+  if token_amount == 0:
     return
 
   # 2. Extract protocol parameters (needed for fee calculations)
   get_protocol_parameters(network, protocol_parameters_file)
 
   # 3. Get UTXOs from our wallet
-  utxo = get_utxo_from_wallet(network, address)
+  utxo = get_utxo_from_wallet(network, src_address)
 
   # 4. Calculate tokens balance
   utxo['balances'] = calculate_tokens_balance(utxo['tokens'])
 
   # 5. Calculate fees for the transaction
-  min_fee = calculate_mint_fees(network, address, token, amount, policy['policy_id'], utxo, protocol_parameters_file)
+  min_fee = calculate_mint_fees(network, src_address, token_name, token_amount, policy['policy_id'], utxo, protocol_parameters_file)
   if min_fee is None:
     return
   
   # 6. Build actual transaction including correct fees
-  ok_fee_file = get_transaction_file(token, 'ok-fee')
+  ok_fee_file = get_transaction_file(token_name, 'ok-fee')
 
-  rc = build_mint_transaction(network, address, token, amount, policy['policy_id'], utxo, min_fee, ok_fee_file)
+  rc = build_mint_transaction(network, src_address, dst_address, token_name, token_amount, policy['policy_id'], utxo, min_fee, ok_fee_file)
   if not rc:
     print("Failed to build transaction")
     return
   
   # 7. Sign the transaction
-  sign_file = get_transaction_file(token, 'sign')
+  sign_file = get_transaction_file(token_name, 'sign')
   sign_mint_transaction(network, skey_file, policy, ok_fee_file, sign_file)
 
   # 8. Submit the transaction to the blockchain
@@ -58,16 +68,21 @@ def main():
   # parse command line parameters
   example_text = '''example:
 
-  python3 %(prog)s --name Alice --token TOK --amount 10000
+  python3 %(prog)s --source Alice --policy POL --token TOK --amount 10000
   ;
-  python3 %(prog)s --address paymentAlice.addr paymentAlice.skey --token TOK --amount 10000
+  python3 %(prog)s --from-address paymentAlice.addr paymentAlice.skey --policy POL --token TOK --amount 10000
   '''
   parser = ArgumentParser(description='Mint amount Token for address with signing key.', epilog=example_text)
-  group = parser.add_mutually_exclusive_group(required=True)
-  group.add_argument('-n', '--name', help='payment address owner name')
-  group.add_argument('-a', '--address', nargs=2, help='address_file and signing_key_file')
+  group_src = parser.add_mutually_exclusive_group(required=True)
+  group_src.add_argument('-s', '--source', help='mint address owner name')
+  group_src.add_argument('-f', '--from-address', nargs=2, help='mint address_file and signing_key_file')
+  group_dst = parser.add_mutually_exclusive_group(required=False)
+  group_dst.add_argument('-d', '--destination', help='destination address owner name')
+  group_dst.add_argument('-a', '--address', help='destination address')
+  group_dst.add_argument('--to-address', help='destination address_file')
   parser.add_argument('-t', '--token', help='token name', required=True)
-  parser.add_argument('--amount', type=int, help='token amount', required=True)
+  parser.add_argument('--amount', type=int, help='token amount', default =0)
+  parser.add_argument('-p', '--policy', help='policy name', required=True)
   args = parser.parse_args()
 
   # load env vars
@@ -79,22 +94,31 @@ def main():
   network['network'] = '--'+getenv('NETWORK')
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
-  network['tokens_path'] = getenv('TOKENS_PATH')
+  network['policies_path'] = getenv('POLICIES_PATH')
   addresses_path = getenv('ADDRESSES_PATH')
   
   # set parameters
-  if args.name:
-    name = args.name
-    address = get_address(get_address_file(addresses_path, 'payment', name))
+  if args.source:
+    name = args.source.capitalize()
+    src_address = get_address(get_address_file(addresses_path, 'payment', name))
     skey_file = get_skey_file(addresses_path, 'payment', name)
   else:
-    address = get_address(addresses_path+args.address[0])
-    skey_file= addresses_path+args.address[1]
+    src_address = get_address(addresses_path+args.from_address[0])
+    skey_file= addresses_path+args.from_address[1]
   token = args.token
   amount = args.amount
+  if args.destination:
+    dst_address = get_address(get_address_file(addresses_path, 'payment', args.destination.capitalize()))
+  elif args.address:
+    dst_address = args.address
+  elif args.to_address:
+    dst_address = get_address(addresses_path+args.to_address)
+  else :
+    dst_address = src_address
+  policy_name = args.policy
 
   # mint token
-  mint(network, address, skey_file, token, amount)
+  mint(network, src_address, skey_file, dst_address, policy_name, token, amount)
 
 if __name__ == '__main__':
   main()

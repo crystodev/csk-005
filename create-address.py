@@ -29,7 +29,7 @@ def create_stake_keypair(addresses_path, address_name):
 def main():
   """
   read parameters from command line
-  and create address
+  and create address and/or key pair
   """
   # parse command line parameters
   example_text = '''examples:
@@ -64,7 +64,7 @@ def main():
   network['network'] = '--'+getenv('NETWORK')
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
-  network['tokens_path'] = getenv('TOKENS_PATH')
+  network['policies_path'] = getenv('POLICIES_PATH')
   addresses_path = getenv('ADDRESSES_PATH')
   
   # check parameters
@@ -72,7 +72,7 @@ def main():
     parser.print_help()
     return
 
-  name = args.name
+  name = args.name.capitalize()
   if(args.payment_key is True):
     create_payment_keypair(addresses_path, name)
   if(args.payment is True) or not (args.payment_key or args.stake_key or args.stake):
