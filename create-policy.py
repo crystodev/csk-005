@@ -5,7 +5,7 @@ Create Cardano Minting Policy
 from argparse import ArgumentParser
 from os import environ, getenv
 from dotenv import load_dotenv
-from tokutils import  create_policy
+from tokutils import  create_policy, get_policy_path
 
 def main():
   """
@@ -16,7 +16,7 @@ def main():
 
   parser = ArgumentParser(description='Create Cardano minting policy')
   parser.add_argument('policy', help='policy name')
-  parse.add_argument('-o', '--owner', help='address owner name')
+  parser.add_argument('-o', '--owner', help='address owner name', required=True)
   args = parser.parse_args()
 
   # load env vars
@@ -29,14 +29,15 @@ def main():
   network['network_magic'] = int(getenv('NETWORK_MAGIC'))
   network['network_era'] = '--'+getenv('NETWORK_ERA')
   network['policies_path'] = getenv('POLICIES_FOLDER')
-  addresses_path = getenv('ADDRESSES_PATH')
   
   # set parameters
-  if args.owner:
-    name = args.owner.capitalize()
+  owner_name = args.owner.capitalize()
+  policy_name = args.policy
+  addresses_path = getenv('ADDRESSES_PATH')
+  network['policies_path'] = get_policy_path(addresses_path, owner_name, policy_name, getenv('POLICIES_FOLDER'))
   
   # create policy
-  policy = create_policy(name, args.policy, network['policies_path'])
+  policy = create_policy(args.policy, network['policies_path'])
   if (policy == {}):
     print("Policy", args.policy, "not created")
     return

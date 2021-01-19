@@ -53,7 +53,7 @@ def create_policy(policy_name, policy_path):
     policy['policy_id'] = policy_id.stdout.decode().replace('\n', '')
     return policy
 
-  makedirs(policies_folder+policy_name, mode=0o777, exist_ok=True)
+  makedirs(policy_path, mode=0o777, exist_ok=True)
 
   rc = subprocess_run(['cardano-cli', 'address', 'key-gen', '--verification-key-file', policy_vkey, '--signing-key-file', policy_skey], capture_output=False)
 
