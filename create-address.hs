@@ -3,7 +3,7 @@ import Options.Applicative
 import Data.Semigroup ((<>))
 import Data.Maybe ( isJust, fromJust )
 import Baseutils ( capitalized )
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Configuration.Dotenv (loadFile, defaultConfig)
 import Tokutils ( AddressType(Payment, Stake), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), createKeypair, createPolicy, getPolicyPath, getPolicyId )
 import Transaction ( createAddress )
@@ -52,24 +52,19 @@ doCreateAddress (Options owner address) = do
   let networkMagic = read snetworkMagic :: Int
   let bNetwork = BlockchainNetwork { network = "--" ++ network, networkMagic = networkMagic, networkEra = "", networkEnv = "" }
   
-  if paymentKey address then do
+  Control.Monad.when (paymentKey address) $ do 
     rc <- createKeypair Payment addressesPath cOwner
     putStrLn $ "Creating payment keypair for " ++ cOwner
-  else
-    return ()
-  if stakeKey address then do
+
+  Control.Monad.when (stakeKey address) $ do 
     rc <- createKeypair Stake addressesPath cOwner
     putStrLn $ "Creating stake keypair for " ++ cOwner
-  else
-    return ()
 
-  if payment address then do
+  Control.Monad.when (payment address) $ do 
     ownerAddress <- createAddress bNetwork Payment addressesPath cOwner
     putStrLn $ "Creating payment address for " ++ cOwner ++ "\n"
-  else
-    return ()
-  if stake address then do
+
+  Control.Monad.when (stake address) $ do 
     ownerAddress <- createAddress bNetwork Stake addressesPath cOwner
     putStrLn $ "Creating stake address for " ++ cOwner ++ "\n"
-  else
-    return ()
+  

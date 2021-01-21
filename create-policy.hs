@@ -45,6 +45,6 @@ doCreatePolicy (Options owner policy) = do
 
   mpolicy <- createPolicy cOwner policyPath
   if isJust mpolicy then do
-    putStrLn $ "Policy id : " ++ (getPolicyId $ fromJust mpolicy)
+    putStrLn $ "Policy id : " ++ getPolicyId(fromJust mpolicy)
   else
     putStrLn $ "Policy " ++ capitalized policy ++ " not created"

@@ -67,7 +67,7 @@ createPolicy policyName policyPath = do
 
 -- get Policy Folder
 getPolicyPath:: FilePath -> String -> String -> FilePath -> FilePath
-getPolicyPath addressPath ownerName policyName policiesFolder = (getAddressPath addressPath ownerName) ++ policiesFolder ++ policyName ++ "/"
+getPolicyPath addressPath ownerName policyName policiesFolder = getAddressPath addressPath ownerName ++ policiesFolder ++ policyName ++ "/"
 
 -- get Policy Id
 getPolicyId:: Policy -> String
@@ -97,9 +97,9 @@ getProtocolKeyDeposit bNetwork = do
   js <- B.readFile jsonFile
   let jsa = decode js
   print jsa
-  return jsa
   -- TODO Retrieve keyDeposit from file
   -- return int(json_loads(rc.stdout)['keyDeposit'])
+  return jsa
 
 -- get protocol parameters
 saveProtocolParameters :: BlockchainNetwork -> FilePath -> IO Bool

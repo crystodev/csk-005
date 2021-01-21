@@ -9,7 +9,7 @@ import Tokutils ( Address, AddressType(Payment, Stake), BlockchainNetwork(Blockc
 createAddress :: BlockchainNetwork -> AddressType -> FilePath -> String -> IO (Maybe Address) 
 createAddress bNetwork addressType addressesPath ownerName = do
   let vkFile = getVkeyFile addressesPath addressType ownerName
-  boolvk <- doesFileExist (vkFile)
+  boolvk <- doesFileExist vkFile
   if not boolvk then do
     putStrLn $ "verification key missing for " ++ ownerName
     return Nothing
@@ -18,7 +18,7 @@ createAddress bNetwork addressType addressesPath ownerName = do
     boolad <- doesFileExist addrFile
     if boolad then do
       putStrLn $ "address already exists for " ++ ownerName
-      getAddress(addrFile)
+      getAddress addrFile
     else do
       let netName = network bNetwork
       let netMagic = networkMagic bNetwork
@@ -32,7 +32,7 @@ createAddress bNetwork addressType addressesPath ownerName = do
       -- print runParams
       (_, Just rc, _, ph) <- createProcess (proc "cardano-cli" runParams){ std_out = CreatePipe }
       r <- waitForProcess ph
-      getAddress(addrFile)
+      getAddress addrFile
 {-
 def create_address(network, address_type, addresses_path, address_prefix, name):
   """
