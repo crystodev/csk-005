@@ -8,46 +8,43 @@ import Control.Monad (void)
 import Configuration.Dotenv (loadFile, defaultConfig)
 
 
-data Opt = Opt
-  { owner      :: String
-  , policy      :: String}
+type Owner = String
+type Pol = String
+data Options = Options Owner Pol
 
-pgmOpts :: Parser Opt
-pgmOpts = Opt
-      <$> strOption
+parsePol :: Parser Pol
+parsePol = argument str (metavar "POLICY")
+
+parseOwner :: Parser Owner
+parseOwner = strOption
           ( long "owner"
          <> short 'o'
          <> metavar "OWNER"
          <> help "address owner name" )
-      <*> strOption
-          ( long "policy"
-         <> short 'p'
-         <> metavar "POLICY"
-         <> help "policy name" )
 
+parseOptions :: Parser Options
+parseOptions = Options <$> parseOwner <*> parsePol
 
 main :: IO ()
 main = doCreatePolicy =<< execParser opts
   where
-    opts = info (pgmOpts <**> helper)
+    opts = info (parseOptions <**> helper)
       ( fullDesc
      <> progDesc "Create Cardano minting policy"
      <> header "create-policy - a simple minting policy creator" )
 
-doCreatePolicy :: Opt -> IO ()
-doCreatePolicy (Opt o p ) = do
-  -- TODO : Read environment variables addressPath and policiesFolder
+doCreatePolicy :: Options -> IO ()
+doCreatePolicy (Options owner policy) = do
   loadFile defaultConfig
   addressPath <- getEnv "ADDRESSES_PATH"
   policiesFolder <- getEnv "POLICIES_FOLDER"
-  let owner = capitalized o
-  let policy = p
-  putStrLn $ "Creating policy " ++ policy ++ " for " ++ owner ++ "\n"
+  let cOwner = capitalized owner
+  putStrLn $ "Creating policy " ++ policy ++ " for " ++ cOwner ++ "\n"
   let policyPath = getPolicyPath addressPath owner policy policiesFolder
   putStrLn $ "Policy path : " ++ policyPath
 
-  mpolicy <- createPolicy owner policyPath
+  mpolicy <- createPolicy cOwner policyPath
   if isJust mpolicy then do
     putStrLn $ "Policy id : " ++ (getPolicyId $ fromJust mpolicy)
   else
-    putStrLn $ "Policy " ++ capitalized p ++ " not created"
+    putStrLn $ "Policy " ++ capitalized policy ++ " not created"
