@@ -13,6 +13,7 @@ import Data.Text.Format.Numbers
 
 type Owner = String
 
+-- parsing options
 data InfoAddress = InfoAddress {
   payment :: Bool
 , stake :: Bool
@@ -35,6 +36,7 @@ parseInfoAddress = InfoAddress
 parseOptions :: Parser Options
 parseOptions = Options <$> parseOwner <*> parseInfoAddress
 
+-- display balance from address
 printBalance :: BlockchainNetwork -> String -> Address -> IO ()
 printBalance bNetwork owner address = do
   _utxo <- getUtxoFromWallet bNetwork address
@@ -44,10 +46,12 @@ printBalance bNetwork owner address = do
   let x = fmap printTokenBalance tokens'
   putStrLn $ unlines x
 
+-- format balance for token
 printTokenBalance :: (String, Int) -> String
 printTokenBalance (token, balance) = do
   printf "%-77s%11s" token ( prettyI (Just ' ') balance)
 
+-- display utxo from address
 printUtxo :: BlockchainNetwork -> String -> Address -> IO ()
 printUtxo bNetwork owner address = do
   _utxo <- getUtxoFromWallet bNetwork address
@@ -91,6 +95,3 @@ getInfoAddress (Options owner infoAddress) = do
       Control.Monad.when (utxo infoAddress) $ do 
         printUtxo bNetwork cOwner address
     _ -> putStrLn $ "No " ++ show addressType ++ " address for " ++ cOwner
-
-
-
