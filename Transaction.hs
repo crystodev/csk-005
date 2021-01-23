@@ -45,7 +45,7 @@ createAddress bNetwork addressType addressesPath ownerName = do
       getAddress addrFile
 
 -- get utxo from wallet
-getUtxoFromWallet :: BlockchainNetwork -> Address -> IO (Utxo)
+getUtxoFromWallet :: BlockchainNetwork -> Address -> IO Utxo
 getUtxoFromWallet bNetwork address = do
   let netName = network bNetwork
   let netMagic = networkMagic bNetwork
@@ -55,19 +55,17 @@ getUtxoFromWallet bNetwork address = do
   (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" runParams ) { env = envParam } {std_out = CreatePipe }
   r <- waitForProcess ph
   raw <- hGetContents hout
-  -- putStrLn raw
+
   -- split lines and remove first to lines
   let txList = drop 2  . lines $ raw
+  -- get transaction id and index from start of lists and join with #
   let rawUtxos = [ take 2 (words tx) | tx <- txList]
   let utxos = fmap (intercalate "#" ) rawUtxos
---  print utxos
-  print $ length utxos
+-- get tokens from end of lists and build tuples (token, amount)
   let rawTokens = [ drop 2 (words tx) | tx <- txList]
---  print rawTokens
   let ltokens = fmap (filter (/= "+")) rawTokens
-  let tokens = concat $ fmap parseTokens ltokens
-  let utxo = Utxo {raw=raw, utxos=utxos, nbUtxos= length utxos, tokens=tokens}
-  return utxo
+  let tokens = concatMap parseTokens ltokens
+  return Utxo {raw=raw, utxos=utxos, nbUtxos= length utxos, tokens=tokens}
 
 -- parse transactions list
 parseTokens :: [String] -> [(String, Int)]
