@@ -1,10 +1,21 @@
-module Transaction ( createAddress ) where
+module Transaction ( createAddress, getUtxoFromWallet, Utxo(Utxo, raw, utxos, nbUtxos, tokens) ) where
 
 import System.Directory ( createDirectoryIfMissing, doesFileExist )
 import System.IO ( hGetContents)
-import System.Process ( createProcess, proc, std_out, StdStream(CreatePipe), waitForProcess )
+import System.Process ( createProcess, env, proc, std_out, StdStream(CreatePipe), waitForProcess )
+import Data.Maybe ( )
+import Data.List ( delete, intercalate )
+import Data.List.Split ( splitOn )
 
-import Tokutils ( Address, AddressType(Payment, Stake), BlockchainNetwork(BlockchainNetwork, network, networkMagic), getAddress, getAddressFile, getVkeyFile, getProtocolKeyDeposit )
+import Tokutils ( Address, AddressType(Payment, Stake), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv),
+  getAddress, getAddressFile, getVkeyFile, getProtocolKeyDeposit )
+
+data Utxo = Utxo {
+    raw :: String
+  , utxos :: [String]
+  , nbUtxos :: Int
+  , tokens :: [(String, Int)]
+}
 
 createAddress :: BlockchainNetwork -> AddressType -> FilePath -> String -> IO (Maybe Address) 
 createAddress bNetwork addressType addressesPath ownerName = do
@@ -29,29 +40,67 @@ createAddress bNetwork addressType addressesPath ownerName = do
       let saddressType = if addressType == Payment then "address" else "stake-address"
       let saddressPrefix = if addressType == Payment then "payment" else "stake"
       let runParams = [saddressType, "build", netName, show netMagic, "--" ++ saddressPrefix ++ "-verification-key-file", vkFile, "--out-file", addrFile]
-      -- print runParams
       (_, Just rc, _, ph) <- createProcess (proc "cardano-cli" runParams){ std_out = CreatePipe }
       r <- waitForProcess ph
       getAddress addrFile
+
+-- get utxo from wallet
+getUtxoFromWallet :: BlockchainNetwork -> Address -> IO (Utxo)
+getUtxoFromWallet bNetwork address = do
+  let netName = network bNetwork
+  let netMagic = networkMagic bNetwork
+  let netEra = networkEra bNetwork
+  let envParam = Just [("CARDANO_NODE_SOCKET_PATH", networkEnv bNetwork)]
+  let runParams = ["query", "utxo", netName, show netMagic, netEra, "--address", address]
+  (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" runParams ) { env = envParam } {std_out = CreatePipe }
+  r <- waitForProcess ph
+  raw <- hGetContents hout
+  -- putStrLn raw
+  -- split lines and remove first to lines
+  let txList = drop 2  . lines $ raw
+  let rawUtxos = [ take 2 (words tx) | tx <- txList]
+  let utxos = fmap (intercalate "#" ) rawUtxos
+--  print utxos
+  print $ length utxos
+  let rawTokens = [ drop 2 (words tx) | tx <- txList]
+--  print rawTokens
+  let ltokens = fmap (filter (/= "+")) rawTokens
+  let tokens = concat $ fmap parseTokens ltokens
+  let utxo = Utxo {raw=raw, utxos=utxos, nbUtxos= length utxos, tokens=tokens}
+  return utxo
+
+-- parse transactions list
+parseTokens :: [String] -> [(String, Int)]
+parseTokens [] = []
+parseTokens [x] = []
+parseTokens (x:y:xs) = (y,read x::Int):parseTokens xs
+ 
+  
 {-
-def create_address(network, address_type, addresses_path, address_prefix, name):
-  """
-  create address based on name
-  """
-  vkey_file = get_vkey_file(addresses_path, address_prefix, name)
-  if not path.exists(vkey_file) :
-    print(address_prefix, "verification key missing for", name)
-    return None
-  addr_file = get_address_file(addresses_path, address_prefix, name)
-  if path.exists(addr_file) :
-    print(address_prefix, "address already exists for", name)
-    return get_address(addr_file)
+def get_utxo_from_wallet(network, address):
+  if address is None:
+    print("address empty")
+    return
   network_name = network['network']
   network_magic = str(network['network_magic'])
+  network_era = network['network_era']
 
-  run_params = ['cardano-cli', address_type, 'build', network_name, network_magic, \
-    '--'+address_prefix+'-verification-key-file', vkey_file, '--out-file', addr_file]
-  subprocess_run(run_params, capture_output=False, text=True)
- 
-  return get_address(addr_file)
+  env_param = network['env']
+  utxo = {}
+  tx_disp = subprocess_run(['cardano-cli', 'query', 'utxo', network_name, network_magic, network_era, '--address', address], \
+    capture_output=True, text=True, env=env_param)
+  tx_list = tx_disp.stdout.split('\n')
+  utxo['raw'] = tx_list
+  tx_list = [tx.split() for tx in tx_list[2:] if tx != ""]
+  t_list = [["--tx-in",tx[0]+'#'+tx[1]] for tx in tx_list]
+  # flatten list
+  utxo['in_utxo'] = [y for x in t_list for y in x]
+  utxo['count_utxo'] = len(tx_list)
+  tx_list = [tx[2:] for tx in tx_list]
+
+  tx_list = [split_list(tx) for tx in tx_list]
+  # flatten list
+  t_list = [y for x in tx_list for y in x]
+  utxo['tokens'] = [ (token[1],int(token[0])) for token in t_list]
+  return utxo
 -}

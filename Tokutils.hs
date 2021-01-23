@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Tokutils ( createKeypair, createPolicy, Address, AddressType(Payment, Stake), BlockchainNetwork (BlockchainNetwork, network, networkMagic, networkEra, networkEnv), getPolicyPath, getPolicyId, getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile ) where
+module Tokutils ( createKeypair, createPolicy, Address, AddressType(Payment, Stake), BlockchainNetwork (BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
+  calculateTokensBalance, getPolicyPath, getPolicyId, getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile ) where
 
 import System.Directory ( createDirectoryIfMissing, doesFileExist)
 import System.FilePath ( takeDirectory )
@@ -10,6 +11,7 @@ import Data.Aeson (decode, encode)
 import Data.Aeson.TH(deriveJSON, defaultOptions, Options(fieldLabelModifier))
 import GHC.Generics
 import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.Map as M
 
 -- policy helpers ---------------------------------------------------------
 data PolicyScript = PolicyScript
@@ -129,7 +131,9 @@ createKeypair addressType addressesPath ownerName = do
     r <- waitForProcess ph
     return True
 
--- calculate_tokens_balance
+-- compute total balance for each tokens in list [(token,amount)]
+calculateTokensBalance :: [(String, Int)] -> [(String, Int)] 
+calculateTokensBalance tokensAmount = M.toList $ M.fromListWith (+) tokensAmount
 
 -- address helpers ---------------------------------------------------------------------
 
@@ -159,7 +163,7 @@ getAddressKeyFile addressesPath addressType addressKey name = do
   let extmap = [ ("address", ".addr"), ("signing_key", ".skey"), ("verification_key", ".vkey")]
   let extm = lookup addressKey extmap
   case extm of
-    Just ext -> getAddressPath addressesPath name ++ saddressType ++ ext
+    Just ext -> getAddressPath addressesPath name ++ saddressType ++ name ++ ext
     _ -> ""
 
 -- give file name for name type address
