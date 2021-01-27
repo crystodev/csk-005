@@ -67,7 +67,7 @@ def build_mint_transaction(network, source_address, destination_address, token_n
   if token_name is None or token_amount == 0:
     return False
   return build_send_transaction(network, source_address, destination_address, 0, token_name, token_amount, True, policy_id, utxo, fee, out_file)
-00
+
 def build_send_transaction(network, source_address, destination_address, ada_amount, token, token_amount, do_mint, policy_id, utxo, fee, out_file):
   """
   build transfer transaction for token
