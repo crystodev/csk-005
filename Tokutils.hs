@@ -1,17 +1,23 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Tokutils ( createKeypair, createPolicy, Address, AddressType(Payment, Stake), BlockchainNetwork (BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
-  calculateTokensBalance, getPolicyPath, getPolicyId, getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile ) where
+module Tokutils ( createKeypair, createPolicy, Address, AddressType(Payment, Stake), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
+  calculateTokensBalance, getPolicy, getPolicyPath, getPolicyId, Policy(Policy, policyId), 
+  getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile, uglyParse ) where
 
 import System.Directory ( createDirectoryIfMissing, doesFileExist)
 import System.FilePath ( takeDirectory )
 import System.IO ( hGetContents, readFile)
 import System.Process ( createProcess, proc, std_out, StdStream(CreatePipe), waitForProcess )
-import Data.Aeson (decode, encode)
+import Data.Aeson (decode, encode, Object)
 import Data.Aeson.TH(deriveJSON, defaultOptions, Options(fieldLabelModifier))
 import GHC.Generics
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.Map as M
+import Control.Monad(when)
+import Data.Maybe ( isNothing, isJust, fromJust )
+import Data.List.Split ( splitOn )
+import Data.List (isPrefixOf)
+import Data.Typeable
 
 -- policy helpers ---------------------------------------------------------
 data PolicyScript = PolicyScript
@@ -51,10 +57,12 @@ createPolicy policyName policyPath = do
   if not bool then do
     createDirectoryIfMissing True policyPath
     -- create policy key files
-    (_, Just rc, _, ph) <- createProcess (proc "cardano-cli" ["address", "key-gen", "--verification-key-file", policyVkey policy, "--signing-key-file", policySkey policy]){ std_out = CreatePipe }
+    let runParams = ["address", "key-gen", "--verification-key-file", policyVkey policy, "--signing-key-file", policySkey policy]
+    (_, Just rc, _, ph) <- createProcess (proc "cardano-cli" runParams ){ std_out = CreatePipe }
     r <- waitForProcess ph
     -- create hash
-    (_, Just hout, _, _) <- createProcess (proc "cardano-cli" ["address", "key-hash", "--payment-verification-key-file", policyVkey policy]){ std_out = CreatePipe }
+    let runParams2 = ["address", "key-hash", "--payment-verification-key-file", policyVkey policy]
+    (_, Just hout, _, _) <- createProcess (proc "cardano-cli" runParams2){ std_out = CreatePipe }
     keyh <- hGetContents hout
     let keyhash = filter (/= '\n') keyh
     -- create policy script
@@ -63,17 +71,32 @@ createPolicy policyName policyPath = do
   else do
     putStrLn $ "Policy exists : no policy created for " ++ policyName
   -- retrieve policy script
-  (_, Just hout, _, _) <- createProcess (proc "cardano-cli" ["transaction", "policyid", "--script-file", policyScript policy]){ std_out = CreatePipe }
+  let runParams3 =["transaction", "policyid", "--script-file", policyScript policy]
+  (_, Just hout, _, _) <- createProcess (proc "cardano-cli" runParams3){ std_out = CreatePipe }
   pId <- hGetContents hout 
   return (Just policy { policyId = filter (/= '\n') pId} )
 
--- get Policy Folder
+-- | get Policy Folder
 getPolicyPath:: FilePath -> String -> String -> FilePath -> FilePath
 getPolicyPath addressPath ownerName policyName policiesFolder = getAddressPath addressPath ownerName ++ policiesFolder ++ policyName ++ "/"
 
 -- get Policy Id
 getPolicyId:: Policy -> String
 getPolicyId = policyId
+
+-- get policy
+getPolicy :: String -> FilePath -> IO (Maybe Policy)
+getPolicy policyName policyPath = do
+  let policy = buildPolicyPath policyName policyPath
+  bool <- doesFileExist (policyScript policy)
+  if bool then do 
+    -- get policy id
+    (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" ["transaction", "policyid", "--script-file", policyScript policy]){ std_out = CreatePipe }
+    r <- waitForProcess ph
+    policyId <- hGetContents hout
+    return $ Just $ Policy (policyScript policy) (policyVkey policy) (policySkey policy) (filter (/= '\n') policyId)
+  else
+    return Nothing
 
 -- protocols helpers ------------------------------------------------------
 
@@ -87,6 +110,11 @@ data BlockchainNetwork = BlockchainNetwork
   deriving Show
 
 -- get keyDeposit parameter from protocol
+uglyParse :: String -> String -> String
+uglyParse jsonData key = do
+  let ls = splitOn "," (filter (`notElem` "\n\" {}") jsonData)
+  last $ splitOn ":" (head ( filter (isPrefixOf key) ls))
+
 getProtocolKeyDeposit :: BlockchainNetwork -> IO (Maybe Int)
 getProtocolKeyDeposit bNetwork = do
   let netName = network bNetwork
@@ -95,13 +123,10 @@ getProtocolKeyDeposit bNetwork = do
   let envParam = networkEnv bNetwork
   (_, Just rc, _, ph) <- createProcess (proc "cardano-cli" ["query", "protocol-parameters", netName, show netMagic, netEra]){ std_out = CreatePipe }
   r <- waitForProcess ph
-  jsonFile <- hGetContents rc
-  js <- B.readFile jsonFile
-  let jsa = decode js
-  print jsa
-  -- TODO Retrieve keyDeposit from file
-  -- return int(json_loads(rc.stdout)['keyDeposit'])
-  return jsa
+  jsonData <- hGetContents rc
+
+  let keyDeposit = read (uglyParse jsonData "keyDeposit")::Int
+  return (Just keyDeposit)
 
 -- get protocol parameters
 saveProtocolParameters :: BlockchainNetwork -> FilePath -> IO Bool

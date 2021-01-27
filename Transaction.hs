@@ -1,14 +1,17 @@
-module Transaction ( createAddress, getUtxoFromWallet, Utxo(Utxo, raw, utxos, nbUtxos, tokens) ) where
+module Transaction ( buildMintTransaction, buildSendTransaction, calculateMintFees, createAddress, getUtxoFromWallet, 
+  Utxo(Utxo, raw, utxos, nbUtxos, tokens) ) where
 
 import System.Directory ( createDirectoryIfMissing, doesFileExist )
 import System.IO ( hGetContents)
 import System.Process ( createProcess, env, proc, std_out, StdStream(CreatePipe), waitForProcess )
-import Data.Maybe ( )
-import Data.List ( delete, intercalate )
+import Data.Maybe ( isNothing, isJust, fromJust )
+import Data.List ( delete, foldl', intercalate )
 import Data.List.Split ( splitOn )
-
+import Data.Aeson (decode)
+import qualified Data.ByteString.Lazy.Char8 as B
 import Tokutils ( Address, AddressType(Payment, Stake), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv),
-  getAddress, getAddressFile, getVkeyFile, getProtocolKeyDeposit )
+  calculateTokensBalance, getAddress, getAddressFile, getVkeyFile, getProtocolKeyDeposit, uglyParse )
+import Data.Typeable
 
 data Utxo = Utxo {
     raw :: String
@@ -16,6 +19,130 @@ data Utxo = Utxo {
   , nbUtxos :: Int
   , tokens :: [(String, Int)]
 }
+
+-- utilities ----------------
+data FileType = Draft | OkFee | Sign
+
+getTransactionFileExt :: FileType -> String
+getTransactionFileExt Draft = ".txbody.draft"
+getTransactionFileExt OkFee = ".txbody-ok-fee"
+getTransactionFileExt Sign = ".tx.sign"
+
+getTransactionFile :: Maybe String -> FileType -> FilePath 
+getTransactionFile Nothing fileType = "/tmp/lovelace" ++ getTransactionFileExt fileType
+getTransactionFile (Just token) fileType = "/tmp/" ++ token ++ getTransactionFileExt fileType
+
+-- check if ada and token amount are enough for transaction 
+checkSendTransactionAmount :: Int -> Maybe String -> Int -> Bool -> String -> Utxo -> Int -> Maybe Int -> IO Bool 
+checkSendTransactionAmount adaAmount token tokenAmount doMint policyId utxo fee keyDeposit =
+  if adaAmount < 0 || tokenAmount < 0 then do
+    putStrLn "Cannot send negative amount"
+    return False
+  else if adaAmount == 0 && tokenAmount == 0 then do
+    putStrLn "Nothing to send"
+    return False
+--  else if isNothing policyId then do
+--    putStrLn "No policy id"
+--    return False
+  else if (nbUtxos utxo) == 0 then do
+    putStrLn "No utxo found"
+    return False
+  else if isNothing keyDeposit then do
+    putStrLn "No keydeposit value found"
+    return False    
+  else if adaAmount * 1000000 < (fromJust keyDeposit) && fee /= 0 then do
+    putStrLn $ "To few lovelace for transaction " ++ show adaAmount ++ " ADA ; you need at least " ++ show (fromJust keyDeposit) ++ " lovelace for transaction"
+    return False
+  else
+    return True
+
+-- check if ada and token balances are above spending
+checkSendTransactionBalance :: [(String, Int)] -> String -> Int -> Int -> Int -> Bool -> IO(Bool, [(String, Int)])
+checkSendTransactionBalance tokenValues assetId fee lovelaceAmount tokenAmount doMint = do
+  let adaId = "lovelace"
+  let balances = calculateTokensBalance tokenValues
+  let balances2 = map (\(t, b) -> if t == adaId then (t, b-fee-lovelaceAmount) else (t, b)) balances
+  if snd (head (filter(\(t, b) -> t == adaId) balances2)) < 0 then do
+    putStrLn $ "The address does not have " ++ show(fee+lovelaceAmount) ++ " lovelaces ( " ++ show(fee+ (div lovelaceAmount 1000000)) ++ " ada )" 
+    return (False, [("",0)])
+  else if not doMint then do
+    let balances3 = map (\(t, b) -> if t == assetId then (t, b-tokenAmount) else (t, b)) balances2
+    if snd (head (filter(\(t, b) -> t == assetId) balances3)) < 0 then do
+      putStrLn $ "The address does not have " ++ (show tokenAmount) ++ assetId
+      return (False, [("",0)])
+    else
+      return(True, balances3)
+  else
+    return(True, balances2)
+
+-- join key value in string
+joinkv :: String -> (String,Int) -> String
+joinkv acc (key, value) = acc ++ " + " ++ show(value) ++ " " ++ key
+
+-- build transfer transaction for token
+buildTxIn :: [String] -> [String]
+buildTxIn utxos = concat ["--tx-in":[u] | u <- utxos]
+
+buildSendTransaction :: BlockchainNetwork -> Address -> Address -> Int -> Maybe String -> Int -> Bool -> String -> Utxo -> Int -> FilePath -> IO Bool 
+buildSendTransaction bNetwork srcAddress dstAddress adaAmount token tokenAmount doMint policyId utxo fee outFile = do
+  keyDeposit <- getProtocolKeyDeposit bNetwork
+  -- need to check isJust keyDeposit
+  bool <- checkSendTransactionAmount adaAmount token tokenAmount doMint policyId utxo fee keyDeposit
+  if (bool) then do
+    let adaId = "lovelace"
+    let lovelaceAmount = if adaAmount == 0 then fromJust keyDeposit else adaAmount * 1000000
+    let assetId = policyId ++ "." ++ (if isJust token then fromJust token else "")
+    (rc, balances) <- checkSendTransactionBalance (tokens utxo) assetId fee lovelaceAmount tokenAmount doMint
+    if rc then do
+      let txOutSrc = foldl' joinkv srcAddress balances
+      let txOutDst = dstAddress ++ "+" ++ show(lovelaceAmount) ++ " " ++ adaId ++ (if isNothing token then "" else "+" ++ show(tokenAmount) ++ " " ++ assetId)
+      ttl <- calculateTTL bNetwork
+      let runParams = ["transaction", "build-raw", networkEra bNetwork, "--fee", show(fee)] ++ buildTxIn (utxos utxo) ++
+            ["--ttl", show(ttl), "--tx-out", txOutDst, "--tx-out", txOutSrc] ++ 
+            (if doMint then ["--mint", show(tokenAmount) ++" "++assetId] else []) ++ ["--out-file", outFile] 
+      (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" runParams){ std_out = CreatePipe }
+      r <- waitForProcess ph
+      return True
+    else
+      return False
+  else
+      return False
+
+-- build mint transaction for token
+buildMintTransaction :: BlockchainNetwork -> Address -> Address -> Maybe String -> Int -> String -> Utxo -> Int -> FilePath -> IO Bool 
+buildMintTransaction bNetwork srcAddress dstAddress token tokenAmount policyId utxo 0 draftFile = do
+  if isJust token && tokenAmount /= 0 then
+    buildSendTransaction bNetwork srcAddress dstAddress 0 token tokenAmount True policyId utxo 0 draftFile
+  else
+    return False
+
+-- calculate network TTL
+calculateTTL :: BlockchainNetwork -> IO Int
+calculateTTL bNetwork = do
+  let forwardSlot=300
+  let runParams = ["query", "tip", network bNetwork, show(networkMagic bNetwork)]
+  (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" runParams){ std_out = CreatePipe }
+  r <- waitForProcess ph
+  jsonData <- hGetContents hout
+  let slot = read(uglyParse jsonData "slotNo")::Int
+  return slot
+
+-- calculate fee for mint transaction
+calculateMintFees :: BlockchainNetwork -> Address -> Maybe String -> Int -> String -> Utxo -> FilePath -> IO (Maybe Int)
+calculateMintFees bNetwork address token amount policyId utxo protparamsFile = do
+  let draftFile = getTransactionFile token Draft
+  bool <- buildMintTransaction bNetwork address address token amount policyId utxo 0 draftFile
+  if not bool then do
+    putStrLn "Failed to build transaction"
+    return Nothing
+  else do
+    let runParams = ["transaction", "calculate-min-fee", "--tx-body-file", draftFile, "--tx-in-count", show(nbUtxos utxo),
+          "--tx-out-count", "1", "--witness-count", "1", "--byron-witness-count", "0", "--protocol-params-file", protparamsFile]
+    (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" runParams){ std_out = CreatePipe }
+    r <- waitForProcess ph
+    rc <- hGetContents hout
+    let mintFee = read(head (words rc))::Int
+    return (Just mintFee)   
 
 createAddress :: BlockchainNetwork -> AddressType -> FilePath -> String -> IO (Maybe Address) 
 createAddress bNetwork addressType addressesPath ownerName = do
@@ -72,33 +199,3 @@ parseTokens :: [String] -> [(String, Int)]
 parseTokens [] = []
 parseTokens [x] = []
 parseTokens (x:y:xs) = (y,read x::Int):parseTokens xs
- 
-  
-{-
-def get_utxo_from_wallet(network, address):
-  if address is None:
-    print("address empty")
-    return
-  network_name = network['network']
-  network_magic = str(network['network_magic'])
-  network_era = network['network_era']
-
-  env_param = network['env']
-  utxo = {}
-  tx_disp = subprocess_run(['cardano-cli', 'query', 'utxo', network_name, network_magic, network_era, '--address', address], \
-    capture_output=True, text=True, env=env_param)
-  tx_list = tx_disp.stdout.split('\n')
-  utxo['raw'] = tx_list
-  tx_list = [tx.split() for tx in tx_list[2:] if tx != ""]
-  t_list = [["--tx-in",tx[0]+'#'+tx[1]] for tx in tx_list]
-  # flatten list
-  utxo['in_utxo'] = [y for x in t_list for y in x]
-  utxo['count_utxo'] = len(tx_list)
-  tx_list = [tx[2:] for tx in tx_list]
-
-  tx_list = [split_list(tx) for tx in tx_list]
-  # flatten list
-  t_list = [y for x in tx_list for y in x]
-  utxo['tokens'] = [ (token[1],int(token[0])) for token in t_list]
-  return utxo
--}
