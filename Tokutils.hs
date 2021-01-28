@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Tokutils ( createKeypair, createPolicy, Address, AddressType(Payment, Stake), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
-  calculateTokensBalance, getPolicy, getPolicyPath, getPolicyId, Policy(Policy, policyId), 
+  calculateTokensBalance, getPolicy, getPolicyPath, getPolicyId, Policy(Policy, policyScript, policyVkey, policySkey, policyId), 
   getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile, uglyParse ) where
 
 import System.Directory ( createDirectoryIfMissing, doesFileExist)
@@ -17,7 +17,6 @@ import Control.Monad(when)
 import Data.Maybe ( isNothing, isJust, fromJust )
 import Data.List.Split ( splitOn )
 import Data.List (isPrefixOf)
-import Data.Typeable
 
 -- policy helpers ---------------------------------------------------------
 data PolicyScript = PolicyScript
