@@ -28,7 +28,7 @@ def build_burn_transaction(network, address, token_name, token_amount, policy_id
   build burn transaction for token
   """
   token_id = policy_id+'.'+token_name
-  if token_id not in utxo['balances']:
+  if token_id not in utxo['balances'].keys():
     print("Cannot burn token", token_name, "with policy", policy_id, ": no token")
     return False
   if utxo['balances'].get(token_id) < token_amount: 
@@ -57,6 +57,7 @@ def build_burn_transaction(network, address, token_name, token_amount, policy_id
   ttl = calculate_ttl(network)
   run_params = ['cardano-cli', 'transaction', 'build-raw', network_era, '--fee', str(fee)] + utxo['in_utxo'] + \
     ['--ttl', str(ttl), '--tx-out', tx_out, '--mint', mint, '--out-file', out_file]
+  print(run_params)
   rc =subprocess_run(run_params, capture_output=False, text=True)
   return rc.returncode == 0
 
