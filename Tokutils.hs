@@ -1,7 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Tokutils ( createKeypair, createPolicy, Address, AddressType(Payment, Stake), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
-  calculateTokensBalance, getPolicy, getPolicyPath, getPolicyId, Policy(Policy, policyScript, policyVkey, policySkey, policyId), 
+module Tokutils ( buildPolicyName, createKeypair, createPolicy, Address, AddressType(Payment, Stake), 
+  BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
+  calculateTokensBalance, getPolicy, getPolicyPath, getPolicyId, getPolicyIdfromTokenId, Policy(Policy, policyScript, policyVkey, policySkey, policyId), 
   getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile, uglyParse ) where
 
 import System.Directory ( createDirectoryIfMissing, doesFileExist)
@@ -37,6 +38,13 @@ data Policy = Policy
   , policyId     :: String
   }
   deriving Show
+
+-- build policy name
+-- if no policy name specified, search policy with token name
+buildPolicyName :: String -> Maybe String -> String
+buildPolicyName "" Nothing = "noName"
+buildPolicyName "" (Just tokenName) = tokenName
+buildPolicyName policyName _ = policyName
 
 -- build Policy full file names
 buildPolicyPath :: String -> String -> Policy
@@ -82,6 +90,11 @@ getPolicyPath addressPath ownerName policyName policiesFolder = getAddressPath a
 -- get Policy Id
 getPolicyId:: Policy -> String
 getPolicyId = policyId
+
+-- get policyId from token id
+getPolicyIdfromTokenId :: String -> String
+getPolicyIdfromTokenId tokenId = head (splitOn "." tokenId)
+  
 
 -- get policy
 getPolicy :: String -> FilePath -> IO (Maybe Policy)

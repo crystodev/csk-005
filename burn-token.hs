@@ -5,7 +5,7 @@ import Data.Semigroup ((<>))
 import Control.Monad (void, when, unless)
 import Data.Maybe ( isJust, fromJust )
 import Baseutils ( capitalized )
-import Tokutils ( Address, AddressType(Payment), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
+import Tokutils ( Address, AddressType(Payment), buildPolicyName, BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
   calculateTokensBalance, getAddress, getAddressFile, getPolicy, getPolicyPath, Policy(Policy, policyId), getSkeyFile, saveProtocolParameters )
 import Transaction ( buildBurnTransaction, calculateBurnFees, getTransactionFile, FileType(..), getUtxoFromWallet, signBurnTransaction,
   submitTransaction, Utxo(Utxo, raw, utxos, nbUtxos, tokens) )
@@ -96,13 +96,6 @@ getSrcAddress ownerName addressesPath = do
       putStrLn $ "Source address : " ++ srcAddress
     _ -> putStrLn $ "No " ++ show Payment ++ " address for " ++ ownerName
   return maddress
-
--- build policy name
--- if no policy name specified, search policy with token name
-buildPolicyName :: String -> Maybe String -> String
-buildPolicyName "" Nothing = "noName"
-buildPolicyName "" (Just tokenName) = tokenName
-buildPolicyName policyName _ = policyName
 
 -- burn amount of token from owner for destination address on given network
 doBurn :: BlockchainNetwork -> Owner -> Maybe Address -> FilePath -> String -> String -> Maybe String -> Int -> IO ()
