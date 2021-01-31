@@ -14,7 +14,7 @@ import Data.Aeson.TH(deriveJSON, defaultOptions, Options(fieldLabelModifier))
 import GHC.Generics
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.Map as M
-import Control.Monad(when)
+import Control.Monad(when, unless)
 import Data.Maybe ( isNothing, isJust, fromJust )
 import Data.List.Split ( splitOn )
 import Data.List (isPrefixOf)
@@ -114,8 +114,15 @@ getPolicy policyName policyPath = do
 
 -- record token minting
 recordToken :: Policy -> String -> IO ()
-recordToken policy tokenName = createDirectoryIfMissing True (tokensPath policy ++ tokenName)
-
+recordToken policy tokenName = do
+  let tokenFile = tokensPath policy ++ tokenName
+  print tokenFile
+  rc <- doesFileExist tokenFile
+  print rc
+  unless rc $ do
+    print (policyId policy ++ "." ++ tokenName)
+    writeFile tokenFile (policyId policy ++ "." ++ tokenName)
+    
 -- protocols helpers ------------------------------------------------------
 
 data BlockchainNetwork = BlockchainNetwork 

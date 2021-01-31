@@ -5,7 +5,7 @@ import Data.Maybe ( isJust, fromJust )
 import Baseutils ( capitalized )
 import Control.Monad (void, when, filterM, mapM_ )
 import Configuration.Dotenv (loadFile, defaultConfig )
-import System.Directory ( doesDirectoryExist, getDirectoryContents )
+import System.Directory ( doesDirectoryExist, getDirectoryContents, doesFileExist )
 import Tokutils ( getPolicy, getPolicyPath, getPolicyId, Policy(..) )
 
 type Owner = String
@@ -52,6 +52,10 @@ getPolicyInfo (Options owner policyName) = do
 listDirs :: FilePath -> IO [FilePath]
 listDirs path = getDirectoryContents path >>= filterM (doesDirectoryExist . (++) path)
 
+-- list files
+listFiles :: FilePath -> IO [FilePath]
+listFiles path = getDirectoryContents path >>= filterM (doesFileExist . (++) path)
+
 -- print policy infos
 printPolicyInfo :: String -> FilePath -> String -> IO ()
 printPolicyInfo ownerName policiesPath policyName  = do
@@ -72,7 +76,7 @@ printTokensInfo :: Policy -> IO ()
 printTokensInfo policy = do
   rc <- doesDirectoryExist (tokensPath policy)
   when rc $ do
-    ltokens  <- listDirs (tokensPath policy)
+    ltokens  <- listFiles (tokensPath policy)
     let tokens = filter (`notElem` [".", ".."]) ltokens
     mapM_ printTokenInfo tokens
 
