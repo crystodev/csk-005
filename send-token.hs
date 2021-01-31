@@ -6,7 +6,7 @@ import Control.Monad (void, when, unless)
 import Data.Maybe ( isJust, isNothing, fromJust, fromMaybe )
 import Baseutils ( capitalized )
 import Tokutils ( Address, AddressType(Payment), buildPolicyName, BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
-  calculateTokensBalance, getAddress, getAddressFile, getPolicy, getPolicyIdfromTokenId, getPolicyPath, Policy(Policy, policyId), getSkeyFile, saveProtocolParameters )
+  calculateTokensBalance, getAddress, getAddressFile, getPolicy, getPolicyIdFromTokenId, getPolicyPath, Policy(Policy, policyId), getSkeyFile, saveProtocolParameters )
 import Transaction ( buildSendTransaction, calculateSendFees, getTransactionFile, FileType(..), getUtxoFromWallet, getTokenIdFromName, signSendTransaction,
   submitTransaction, Utxo(Utxo, raw, utxos, nbUtxos, tokens) )
 
@@ -168,7 +168,7 @@ doSend bNetwork ownerName msrcAddress skeyFile mdstAddress adaAmount policyName 
     -- 3. get policy for our token
     let mtokenId =  getTokenIdFromName (fromJust mtokenName) (tokens utxo)
     if isJust mtokenId then do
-      let policyId = getPolicyIdfromTokenId (fromJust mtokenId)
+      let policyId = getPolicyIdFromTokenId (fromJust mtokenId)
       -- 4. Calculate tokens balance
       let balances = calculateTokensBalance(tokens utxo)
 

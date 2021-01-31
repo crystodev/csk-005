@@ -2,6 +2,7 @@ module Transaction ( buildBurnTransaction, buildMintTransaction, buildSendTransa
   FileType(Draft, OkFee, Sign), getUtxoFromWallet, getTokenIdFromName,
   signBurnTransaction, signMintTransaction, signSendTransaction, submitTransaction, Utxo(Utxo, raw, utxos, nbUtxos, tokens), TransactionType(..) ) where
 
+import GHC.IO.Exception (ExitCode( ExitSuccess ))
 import System.Directory ( createDirectoryIfMissing, doesFileExist )
 import System.IO ( hGetContents)
 import System.Process ( createProcess, env, proc, std_out, StdStream(CreatePipe), waitForProcess )
@@ -39,7 +40,7 @@ getTransactionFile (Just token) fileType = "/tmp/" ++ token ++ getTransactionFil
 getTokenIdFromName :: String -> [(String, Int)] -> Maybe String
 getTokenIdFromName tokenName tokenValues = do
   -- extract token list from list of (token, value)
-  let tokenList = fst $ unzip tokenValues
+  let tokenList = map fst tokenValues
   find (tokenName `isSuffixOf` ) tokenList
 
 -- check if ada and token amount are enough for transaction 
@@ -322,4 +323,4 @@ submitTransaction bNetwork signFile = do
   let runParams = ["transaction", "submit", network bNetwork, show(networkMagic bNetwork), "--tx-file", signFile]
   (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" runParams) { env = envParam }{ std_out = CreatePipe }
   r <- waitForProcess ph
-  return True
+  return (r == ExitSuccess)

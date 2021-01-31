@@ -2,8 +2,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Tokutils ( buildPolicyName, createKeypair, createPolicy, Address, AddressType(Payment, Stake), 
   BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
-  calculateTokensBalance, getPolicy, getPolicyPath, getPolicyId, getPolicyIdfromTokenId, Policy(Policy, policyScript, policyVkey, policySkey, policyId), 
-  getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile, uglyParse ) where
+  calculateTokensBalance, getPolicy, getPolicyPath, getPolicyId, getPolicyIdFromTokenId, Policy(..), 
+  getProtocolKeyDeposit, saveProtocolParameters, getAddress, getAddressFile, getSkeyFile, getVkeyFile, recordToken, uglyParse ) where
 
 import System.Directory ( createDirectoryIfMissing, doesFileExist)
 import System.FilePath ( takeDirectory )
@@ -35,6 +35,7 @@ data Policy = Policy
     policyScript :: FilePath
   , policyVkey   :: FilePath
   , policySkey   :: FilePath
+  , tokensPath   :: FilePath
   , policyId     :: String
   }
   deriving Show
@@ -52,6 +53,7 @@ buildPolicyPath policyName policyPath = Policy
   (policyPath ++ "policy.script")
   (policyPath ++ "policy.vkey")
   (policyPath ++ "policy.skey")
+  (policyPath ++ "tokens/")
   ""
 
 -- create a Cardano Policy
@@ -85,6 +87,7 @@ createPolicy policyName policyPath = do
 
 -- | get Policy Folder
 getPolicyPath:: FilePath -> String -> String -> FilePath -> FilePath
+getPolicyPath addressPath ownerName "" policiesFolder = getAddressPath addressPath ownerName ++ policiesFolder
 getPolicyPath addressPath ownerName policyName policiesFolder = getAddressPath addressPath ownerName ++ policiesFolder ++ policyName ++ "/"
 
 -- get Policy Id
@@ -92,9 +95,8 @@ getPolicyId:: Policy -> String
 getPolicyId = policyId
 
 -- get policyId from token id
-getPolicyIdfromTokenId :: String -> String
-getPolicyIdfromTokenId tokenId = head (splitOn "." tokenId)
-  
+getPolicyIdFromTokenId :: String -> String
+getPolicyIdFromTokenId tokenId = head (splitOn "." tokenId)
 
 -- get policy
 getPolicy :: String -> FilePath -> IO (Maybe Policy)
@@ -106,9 +108,13 @@ getPolicy policyName policyPath = do
     (_, Just hout, _, ph) <- createProcess (proc "cardano-cli" ["transaction", "policyid", "--script-file", policyScript policy]){ std_out = CreatePipe }
     r <- waitForProcess ph
     policyId <- hGetContents hout
-    return $ Just $ Policy (policyScript policy) (policyVkey policy) (policySkey policy) (filter (/= '\n') policyId)
+    return $ Just $ Policy (policyScript policy) (policyVkey policy) (policySkey policy) (tokensPath policy) (filter (/= '\n') policyId)
   else
     return Nothing
+
+-- record token minting
+recordToken :: Policy -> String -> IO ()
+recordToken policy tokenName = createDirectoryIfMissing True (tokensPath policy ++ tokenName)
 
 -- protocols helpers ------------------------------------------------------
 

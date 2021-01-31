@@ -40,7 +40,7 @@ doCreatePolicy (Options owner policy) = do
   policiesFolder <- getEnv "POLICIES_FOLDER"
   let cOwner = capitalized owner
   putStrLn $ "Creating policy " ++ policy ++ " for " ++ cOwner ++ "\n"
-  let policyPath = getPolicyPath addressPath owner policy policiesFolder
+  let policyPath = getPolicyPath addressPath cOwner policy policiesFolder
   putStrLn $ "Policy path : " ++ policyPath
 
   mpolicy <- createPolicy cOwner policyPath

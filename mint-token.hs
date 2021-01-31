@@ -6,7 +6,8 @@ import Control.Monad (void, when, unless)
 import Data.Maybe ( isJust, fromJust )
 import Baseutils ( capitalized )
 import Tokutils ( Address, AddressType(Payment), BlockchainNetwork(BlockchainNetwork, network, networkMagic, networkEra, networkEnv), 
-  calculateTokensBalance, createPolicy, getAddress, getAddressFile, getPolicy, getPolicyPath, Policy(Policy, policyId), getSkeyFile, saveProtocolParameters )
+  calculateTokensBalance, createPolicy, getAddress, getAddressFile, getPolicy, getPolicyPath, Policy(Policy, policyId ), getSkeyFile, 
+  recordToken, saveProtocolParameters )
 import Transaction ( buildMintTransaction, calculateMintFees, getTransactionFile, FileType(..), getUtxoFromWallet, signMintTransaction,
   submitTransaction, Utxo(Utxo, raw, utxos, nbUtxos, tokens) )
 
@@ -177,5 +178,7 @@ doMint bNetwork ownerName msrcAddress skeyFile mdstAddress policyName policiesPa
 
       -- 8. Submit the transaction to the blockchain
       rc <- submitTransaction bNetwork signFile
+      when rc $ do
+        when (isJust mtokenName) $ do
+          recordToken (fromJust policy) (fromJust mtokenName)
       -- print signFile
-      return ()
